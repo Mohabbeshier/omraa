@@ -19,7 +19,7 @@
 </head>
 <body>
   <h1>🔍 تشخيص سرعة قراءة الباركود</h1>
-  <p>امسح أي باركود قطعة حقيقية (أو اكتبه) واضغط اختبار — هيقول لك بالضبط كام ثانية استغرق الاتصال بالسيرفر، من جهازك ده وشبكتك دي.</p>
+  <p><b>مهم:</b> استخدم السكانر العادي وامسح باركود قطعة حقيقية فعليًا موجودة قدامك — بالضبط بنفس الطريقة اللي بتستخدمها كل يوم في نقطة البيع. لا تكتب الرقم بإيدك. الهدف نتأكد إن نفس المسح اللي بيحصل يوميًا بيرجع رد بسرعة طبيعية.</p>
   <input id="barcode" placeholder="امسح أو اكتب الباركود هنا..." autofocus>
   <button onclick="test()">اختبار السرعة الآن</button>
   <div id="result" class="result waiting">في انتظار الاختبار...</div>
@@ -53,7 +53,7 @@ async function test() {
 
   try {
     const resp = await fetch(
-      `${URL}/rest/v1/pos_items_scan?select=id,barcode,status&barcode=eq.${encodeURIComponent(barcode)}&limit=1`,
+      `${URL}/rest/v1/pos_items_scan?select=id,barcode,product_id,product_name,sell_price,size,color,status&barcode=eq.${encodeURIComponent(barcode)}&limit=1`,
       { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } }
     );
     const elapsed = performance.now() - start;

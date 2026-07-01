@@ -39,8 +39,6 @@ except Exception:
 }
 
 echo "🔍 فحص 1: كل صفحة .html تشاور على chunk واحد فقط (لا نسخ متعددة متضاربة)"
-pages=$(fetch_raw "index.html" > /dev/null 2>&1 && echo ok || echo fail)
-# نجيب قائمة الصفحات من بنية الـ repo نفسها بدل قائمة يدوية
 tree=$(curl -sL -H "Authorization: token $GITHUB_TOKEN" "$API/git/trees/main?recursive=1")
 page_dirs=$(echo "$tree" | python3 -c "
 import sys, json
@@ -50,8 +48,8 @@ for item in d.get('tree', []):
     path = item['path']
     if path.startswith('_next/static/chunks/app/(app)/') and item['type'] == 'blob' and path.endswith('.js'):
         parts = path.split('/')
-        if len(parts) >= 6:
-            dirs.add(parts[4])
+        if len(parts) >= 7:
+            dirs.add(parts[5])
 print('\n'.join(sorted(dirs)))
 ")
 
@@ -61,7 +59,7 @@ for page in $page_dirs; do
         echo "  ⚠️  ${page}.html غير موجود أو فشل التحميل"
         continue
     fi
-    script_refs=$(echo "$html" | grep -oE "page-[a-zA-Z0-9]+\.js" | sort -u | wc -l)
+    script_refs=$(echo "$html" | grep -oE '<script src="[^"]*page-[a-zA-Z0-9]+\.js"' | grep -oE "page-[a-zA-Z0-9]+\.js" | sort -u | wc -l)
     if [ "$script_refs" -gt 1 ]; then
         echo "  ❌ ${page}.html بيشاور على $script_refs نسخ مختلفة من page-*.js"
         FAILED=1

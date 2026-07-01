@@ -1,0 +1,101 @@
+(self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[169],{1907:(e,t,s)=>{"use strict";s.d(t,{d:()=>r,t:()=>i});var a=s(95155),l=s(12115);let n=(0,l.createContext)({notify:()=>{}}),r=()=>(0,l.useContext)(n);function i(e){let{children:t}=e,[s,r]=(0,l.useState)([]),i=(0,l.useCallback)(function(e){let t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:"success",s=Date.now()+Math.random();r(a=>[...a,{id:s,kind:t,text:e}]),setTimeout(()=>r(e=>e.filter(e=>e.id!==s)),3500)},[]),c={success:"bg-green-600",error:"bg-rose-600",info:"bg-indigo-600"};return(0,a.jsxs)(n.Provider,{value:{notify:i},children:[t,(0,a.jsx)("div",{className:"fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-[min(92vw,26rem)]",children:s.map(e=>(0,a.jsx)("div",{className:"".concat(c[e.kind]," text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-center animate-[fadeIn_.2s_ease-out]"),children:e.text},e.id))})]})}},7e3:(e,t,s)=>{"use strict";s.d(t,{IE:()=>d,b2:()=>r,h8:()=>o,m9:()=>n,nw:()=>i,tN:()=>l});let a=new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",minimumFractionDigits:0,maximumFractionDigits:2});function l(e){let t=Number(e||0);return"‏"+a.format(t)}function n(e){return e?new Date(e).toLocaleDateString("ar-EG",{timeZone:"Africa/Cairo",year:"numeric",month:"long",day:"numeric"}):"—"}function r(e){return e?new Date(e).toLocaleString("ar-EG",{timeZone:"Africa/Cairo",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"—"}function i(e){return e?new Date(e).toLocaleTimeString("ar-EG",{timeZone:"Africa/Cairo",hour:"2-digit",minute:"2-digit"}):"—"}let c=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Cairo",year:"numeric",month:"2-digit",day:"2-digit"});function d(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:new Date;return c.format(e)}function o(e){return d(new Date(Date.now()-864e5*e))}},17893:(e,t,s)=>{"use strict";s.r(t),s.d(t,{default:()=>u});var a=s(95155),l=s(95454),n=s(12115),r=s(51365),i=s(7e3),c=s(1907),d=s(25976),o=s(17268),x=s(67455);
+
+// خريطة الشرائح — لون + تسمية عربية + رمز
+const TIER_MAP={new:{label:"عميل جديد",cls:"bg-slate-100 text-slate-500",icon:"🆕"},silver:{label:"عميل مميز",cls:"bg-slate-200 text-slate-700",icon:"🥈"},gold:{label:"عميل VIP",cls:"bg-amber-100 text-amber-700",icon:"🥇"}};
+
+function waLink(e164,name){
+  let msg="مرحبًا "+name+"، عندك نقاط ولاء في متجر الأمراء 🎁";
+  return "https://wa.me/"+e164+"?text="+encodeURIComponent(msg);
+}
+
+// مودال إضافة/تعديل عميل
+function CustomerModal(e){
+  let {open,onClose,onSaved,editing}=e;
+  let [name,setName]=(0,n.useState)(""),[phone,setPhone]=(0,n.useState)(""),[notes,setNotes]=(0,n.useState)(""),[saving,setSaving]=(0,n.useState)(!1);
+  let g=(0,r.U)(),{notify:nf}=(0,c.d)();
+  (0,n.useEffect)(()=>{
+    if(open){
+      setName(editing?editing.name:"");
+      setPhone(editing?(editing.phone||""):"");
+      setNotes(editing?(editing.notes||""):"");
+    }
+  },[open,editing]);
+  if(!open)return null;
+  async function save(){
+    let nm=name.trim();
+    if(!nm)return void nf("اسم العميل مطلوب","error");
+    let ph=phone.trim();
+    if(ph && !/^01[0125][0-9]{8}$/.test(ph))return void nf("رقم الهاتف غير صحيح — 11 رقم يبدأ بـ 010/011/012/015","error");
+    setSaving(!0);
+    try{
+      if(editing){
+        let{error}=await g.rpc("pos_fn_update_customer",{p_id:editing.id,p_name:nm,p_phone:ph||null,p_notes:notes.trim()||null});
+        if(error)return void nf(error.message,"error");
+        nf("تم تحديث بيانات العميل","success");
+      }else{
+        let{error}=await g.rpc("pos_fn_upsert_customer",{p_name:nm,p_phone:ph||null});
+        if(error)return void nf(error.message,"error");
+        nf("تم إضافة العميل","success");
+      }
+      onSaved();onClose();
+    }finally{setSaving(!1)}
+  }
+  return (0,a.jsx)("div",{className:"fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4",onClick:onClose,children:
+    (0,a.jsxs)("div",{className:"bg-white rounded-2xl p-5 w-full max-w-sm space-y-3",onClick:e=>e.stopPropagation(),children:[
+      (0,a.jsx)("h3",{className:"font-bold text-slate-900",children:editing?"تعديل بيانات العميل":"إضافة عميل جديد"}),
+      (0,a.jsxs)("div",{children:[(0,a.jsx)("label",{className:"text-xs text-slate-500 mb-1 block",children:"الاسم *"}),(0,a.jsx)("input",{autoFocus:!0,value:name,onChange:e=>setName(e.target.value),className:"w-full text-sm",placeholder:"اسم العميل"})]}),
+      (0,a.jsxs)("div",{children:[(0,a.jsx)("label",{className:"text-xs text-slate-500 mb-1 block",children:"رقم الهاتف (اختياري)"}),(0,a.jsx)("input",{value:phone,onChange:e=>setPhone(e.target.value.replace(/[^0-9]/g,"").slice(0,11)),className:"w-full text-sm text-left",dir:"ltr",inputMode:"numeric",placeholder:"01xxxxxxxxx"})]}),
+      (0,a.jsxs)("div",{children:[(0,a.jsx)("label",{className:"text-xs text-slate-500 mb-1 block",children:"ملاحظات (اختياري)"}),(0,a.jsx)("textarea",{value:notes,onChange:e=>setNotes(e.target.value),className:"w-full text-sm",rows:2,placeholder:"مقاس معتاد، تفضيلات..."})]}),
+      (0,a.jsxs)("div",{className:"flex gap-2 pt-1",children:[
+        (0,a.jsx)("button",{onClick:save,disabled:saving,className:"flex-1 btn-primary text-sm disabled:opacity-50",children:saving?"جارٍ الحفظ...":"حفظ"}),
+        (0,a.jsx)("button",{onClick:onClose,className:"px-4 text-sm text-slate-500",children:"إلغاء"})
+      ]})
+    ]})
+  });
+}
+
+function m(e){let{c:t,isOwner:s,onEdit:onEdit}=e,[l,m]=(0,n.useState)(!1),[u,h]=(0,n.useState)(null),[p,j]=(0,n.useState)(!1),g=(0,r.U)(),{notify:f}=(0,c.d)();async function b(){if(l)return void m(!1);if(m(!0),null===u){j(!0);try{let{data:e,error:s}=await g.rpc("pos_fn_customer_history",{p_customer_id:t.id});if(s)return void f(s.message,"error");h(e||[])}finally{j(!1)}}}
+let tier=TIER_MAP[t.tier]||TIER_MAP.new;
+return(0,a.jsxs)(a.Fragment,{children:[(0,a.jsxs)("tr",{className:"hover:bg-slate-50",children:[
+  (0,a.jsx)("td",{className:"cursor-pointer",onClick:b,children:(0,a.jsxs)("div",{className:"flex items-center gap-2",children:[(0,a.jsx)("span",{className:"font-medium",children:t.name}),(0,a.jsxs)("span",{className:"badge text-[10px] ".concat(tier.cls),children:[tier.icon," ",tier.label]})]})}),
+  (0,a.jsx)("td",{className:"text-slate-500 text-sm cursor-pointer",onClick:b,children:t.phone||"—"}),
+  (0,a.jsx)("td",{className:"cursor-pointer",onClick:b,children:(0,a.jsxs)("span",{className:"badge ".concat(t.loyalty_points>0?"bg-indigo-50 text-indigo-700":"bg-slate-100 text-slate-400"),children:["🎁 ",t.loyalty_points]})}),
+  s&&(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)("td",{className:"font-semibold text-indigo-600 cursor-pointer",onClick:b,children:(0,i.tN)(t.total_spent)}),(0,a.jsx)("td",{className:"text-slate-500 text-sm cursor-pointer",onClick:b,children:t.order_count})]}),
+  (0,a.jsx)("td",{className:"text-slate-400 text-xs hidden sm:table-cell cursor-pointer",onClick:b,children:t.last_order_at?(0,i.m9)(t.last_order_at):"—"}),
+  (0,a.jsx)("td",{className:"flex items-center gap-1",children:[
+    t.whatsapp_e164&&(0,a.jsx)("a",{href:waLink(t.whatsapp_e164,t.name),target:"_blank",rel:"noreferrer",onClick:e=>e.stopPropagation(),className:"p-1.5 text-green-500 hover:bg-green-50 rounded-lg","aria-label":"واتساب",children:(0,a.jsx)("svg",{viewBox:"0 0 24 24",className:"w-4 h-4",fill:"currentColor",children:(0,a.jsx)("path",{d:"M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.94L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2m0 1.67c2.2 0 4.26.86 5.82 2.42a8.19 8.19 0 0 1 2.41 5.82c0 4.54-3.7 8.24-8.24 8.24a8.2 8.2 0 0 1-4.19-1.15l-.3-.17-3.12.82.83-3.04-.2-.32a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.25-8.24m-4.28 4.7c-.15 0-.4.06-.57.24-.19.2-.72.7-.72 1.72s.74 1.99.84 2.13c.1.13 1.4 2.24 3.49 3.05 1.73.68 2.08.55 2.46.51.38-.03 1.22-.5 1.4-.98.17-.48.17-.9.12-.98-.06-.09-.22-.14-.46-.26-.24-.12-1.4-.69-1.62-.77-.22-.08-.38-.12-.53.12-.16.24-.61.77-.75.93-.14.15-.28.17-.52.06-.24-.12-1.02-.38-1.94-1.2-.72-.63-1.2-1.42-1.34-1.65-.14-.24-.02-.37.1-.5.1-.13.24-.32.36-.48.12-.16.16-.27.24-.44.08-.17.04-.32-.03-.44-.07-.13-.66-1.6-.9-2.19-.2-.5-.4-.5-.57-.5"})})}),
+    (0,a.jsx)("button",{onClick:e=>{e.stopPropagation();onEdit(t)},className:"p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg","aria-label":"تعديل",children:(0,a.jsxs)("svg",{viewBox:"0 0 24 24",className:"w-4 h-4",fill:"none",stroke:"currentColor",strokeWidth:"1.8",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,a.jsx)("path",{d:"M12 20h9"}),(0,a.jsx)("path",{d:"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"})]})}),
+    (0,a.jsx)("button",{onClick:b,className:"p-1 text-slate-400",children:l?(0,a.jsx)(o.ow,{className:"w-4 h-4"}):(0,a.jsx)(o.rI,{className:"w-4 h-4"})})
+  ]})
+]}),l&&(0,a.jsx)("tr",{children:(0,a.jsx)("td",{colSpan:s?7:6,className:"bg-slate-50/80 px-4 pb-3 pt-0",children:p?(0,a.jsx)(d.EA,{className:"h-24 mt-2"}):u&&0!==u.length?(0,a.jsxs)("div",{className:"mt-2 space-y-2",children:[
+  t.notes&&(0,a.jsxs)("div",{className:"bg-amber-50 border border-amber-100 rounded-xl p-2.5 text-xs text-amber-800",children:["📝 ",t.notes]}),
+  u.map(e=>{var t2;return(0,a.jsxs)("div",{className:"bg-white rounded-xl border border-slate-100 p-3",children:[(0,a.jsxs)("div",{className:"flex items-center justify-between mb-2 flex-wrap gap-1",children:[(0,a.jsxs)("span",{className:"font-mono text-indigo-600 font-semibold text-sm",children:["#",e.code]}),(0,a.jsx)("span",{className:"text-xs text-slate-400",children:(0,i.b2)(e.created_at)}),(0,a.jsx)("span",{className:"badge bg-slate-100 text-slate-600 text-xs",children:null!=(t2=x.tK[e.payment])?t2:e.payment}),s&&(0,a.jsx)("span",{className:"font-bold text-slate-800",children:(0,i.tN)(e.total)})]}),e.items&&e.items.length>0&&(0,a.jsx)("div",{className:"space-y-0.5",children:e.items.map((e,t)=>(0,a.jsxs)("div",{className:"flex items-center justify-between text-xs ".concat(e.returned?"opacity-40 line-through":""),children:[(0,a.jsxs)("span",{className:"text-slate-700",children:[e.name," — مقاس ",e.size," (",e.color,")"]}),(0,a.jsx)("span",{className:"font-mono text-slate-400 mr-2",children:e.barcode}),s&&(0,a.jsx)("span",{className:"text-indigo-600 font-medium",children:(0,i.tN)(e.price)})]},t))})]},e.id)})
+]}):(0,a.jsxs)("div",{children:[t.notes&&(0,a.jsxs)("div",{className:"bg-amber-50 border border-amber-100 rounded-xl p-2.5 text-xs text-amber-800 mb-2",children:["📝 ",t.notes]}),(0,a.jsx)("p",{className:"text-sm text-slate-400 py-4 text-center",children:"لا توجد مشتريات مسجّلة"})]})})})]})}
+
+function u(){let[e,t]=(0,n.useState)([]),[s,x]=(0,n.useState)(""),[u,h]=(0,n.useState)(!0),{isOwner:p}=(0,l.n)(),j=(0,r.U)(),{notify:g}=(0,c.d)(),[modalOpen,setModalOpen]=(0,n.useState)(!1),[editing,setEditing]=(0,n.useState)(null);
+let f=(0,n.useCallback)(async function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"";h(!0);try{let{data:s,error:a}=await j.rpc("pos_fn_list_customers",{p_query:e});if(a)return void g(a.message,"error");t(s||[])}finally{h(!1)}},[]);(0,n.useEffect)(()=>{f()},[f]),(0,n.useEffect)(()=>{let e=setTimeout(()=>f(s),300);return()=>clearTimeout(e)},[s,f]);
+let b=(0,n.useMemo)(()=>e.reduce((e,t)=>e+t.loyalty_points,0),[e]),N=(0,n.useMemo)(()=>e.reduce((e,t)=>e+Number(t.total_spent),0),[e]);
+let goldCount=(0,n.useMemo)(()=>e.filter(c=>c.tier==="gold").length,[e]);
+function openAdd(){setEditing(null);setModalOpen(!0)}
+function openEdit(c){setEditing(c);setModalOpen(!0)}
+return(0,a.jsxs)("div",{className:"p-4 lg:p-6 space-y-4",children:[
+  (0,a.jsxs)("div",{className:"flex flex-wrap items-center justify-between gap-3",children:[
+    (0,a.jsxs)("div",{children:[(0,a.jsxs)("h1",{className:"text-xl font-bold text-slate-900 flex items-center gap-2",children:[(0,a.jsx)(o.h6,{className:"w-6 h-6 text-indigo-600"})," العملاء"]}),(0,a.jsx)("p",{className:"text-sm text-slate-500 mt-0.5",children:"سجّل المشتريات، نقاط الولاء، وشرائح العملاء"})]}),
+    (0,a.jsxs)("div",{className:"flex gap-2 flex-1 sm:flex-initial",children:[
+      (0,a.jsx)(d.DO,{value:s,onChange:x,placeholder:"بحث بالاسم أو الهاتف...",className:"max-w-xs flex-1"}),
+      (0,a.jsxs)("button",{onClick:openAdd,className:"btn-primary text-sm whitespace-nowrap flex items-center gap-1.5 px-3",children:[(0,a.jsxs)("svg",{viewBox:"0 0 24 24",className:"w-4 h-4",fill:"none",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round",children:[(0,a.jsx)("line",{x1:"12",y1:"5",x2:"12",y2:"19"}),(0,a.jsx)("line",{x1:"5",y1:"12",x2:"19",y2:"12"})]}),"عميل جديد"]})
+    ]})
+  ]}),
+  !u&&e.length>0&&(0,a.jsxs)("div",{className:"flex gap-3 flex-wrap text-sm",children:[
+    (0,a.jsxs)("span",{className:"badge bg-slate-100 text-slate-600",children:[e.length," عميل"]}),
+    (0,a.jsxs)("span",{className:"badge bg-indigo-50 text-indigo-700",children:["🎁 ",b," نقطة إجمالاً"]}),
+    goldCount>0&&(0,a.jsxs)("span",{className:"badge bg-amber-100 text-amber-700",children:["🥇 ",goldCount," عميل VIP"]}),
+    p&&(0,a.jsxs)("span",{className:"badge bg-green-50 text-green-700",children:["إجمالي الإنفاق ",(0,i.tN)(N)]})
+  ]}),
+  (0,a.jsx)("div",{className:"card p-0 overflow-x-auto",children:(0,a.jsxs)("table",{children:[(0,a.jsx)("thead",{children:(0,a.jsxs)("tr",{children:[(0,a.jsx)("th",{children:"العميل"}),(0,a.jsx)("th",{children:"الهاتف"}),(0,a.jsx)("th",{children:"النقاط"}),p&&(0,a.jsxs)(a.Fragment,{children:[(0,a.jsx)("th",{children:"إجمالي الإنفاق"}),(0,a.jsx)("th",{children:"الفواتير"})]}),(0,a.jsx)("th",{className:"hidden sm:table-cell",children:"آخر زيارة"}),(0,a.jsx)("th",{})]})}),
+    (0,a.jsx)("tbody",{children:u?(0,a.jsx)("tr",{children:(0,a.jsx)("td",{colSpan:p?7:6,className:"p-4",children:(0,a.jsx)(d.EA,{className:"h-24"})})}):0===e.length?(0,a.jsx)("tr",{children:(0,a.jsx)("td",{colSpan:p?7:6,children:(0,a.jsx)(d.pp,{icon:(0,a.jsx)(o.h6,{className:"w-10 h-10"}),title:s?"لا توجد نتائج":"لا يوجد عملاء بعد",hint:s?"":"اضغط «عميل جديد» لإضافة أول عميل، أو سيُضاف تلقائيًا عند تسجيل مبيعة باسمه"})})}):e.map(e=>(0,a.jsx)(m,{c:e,isOwner:p,onEdit:openEdit},e.id))})
+  ]})}),
+  !u&&e.length>0&&(0,a.jsx)("p",{className:"text-xs text-slate-400",children:"النقاط تُكسب تلقائيًا عند البيع (كل 100 ج.م = نقطة واحدة). استرداد النقاط من نقطة البيع. الشرائح (مميز/VIP) تُحسب تلقائيًا حسب إجمالي الإنفاق."}),
+  (0,a.jsx)(CustomerModal,{open:modalOpen,onClose:()=>setModalOpen(!1),onSaved:()=>f(s),editing:editing})
+]})}
+},25976:(e,t,s)=>{"use strict";s.d(t,{DO:()=>i,EA:()=>n,pp:()=>r,sc:()=>c});var a=s(95155);s(12115);var l=s(17268);function n(e){let{className:t=""}=e;return(0,a.jsx)("div",{className:"animate-pulse bg-slate-100 rounded-xl ".concat(t)})}function r(e){let{icon:t,title:s,hint:l}=e;return(0,a.jsxs)("div",{className:"text-center py-12 text-slate-400",children:[t&&(0,a.jsx)("div",{className:"flex justify-center mb-3 text-slate-300",children:t}),(0,a.jsx)("p",{className:"font-medium text-slate-500",children:s}),l&&(0,a.jsx)("p",{className:"text-sm mt-1",children:l})]})}function i(e){let{value:t,onChange:s,placeholder:n,className:r=""}=e;return(0,a.jsxs)("div",{className:"relative ".concat(r),children:[(0,a.jsx)("span",{className:"absolute top-1/2 -translate-y-1/2 right-3 text-slate-400 pointer-events-none",children:(0,a.jsx)(l.C0,{className:"w-4 h-4"})}),(0,a.jsx)("input",{value:t,onChange:e=>s(e.target.value),placeholder:n,className:"pr-9"})]})}function c(e){let{options:t,value:s,onChange:l}=e;return(0,a.jsx)("div",{className:"flex flex-wrap gap-2",children:t.map(e=>(0,a.jsxs)("button",{onClick:()=>l(e.value),className:"text-sm px-3 py-1.5 rounded-full font-medium transition-colors ".concat(s===e.value?"bg-indigo-600 text-white":"bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"),children:[e.label,"number"==typeof e.count?" (".concat(e.count,")"):""]},e.value))})}},67455:(e,t,s)=>{"use strict";s.d(t,{tK:()=>a,w8:()=>l}),s(51365);let a={cash:"نقدًا",card:"بطاقة",mixed:"مختلط",cod:"دفع عند الاستلام",prepaid:"مدفوع مقدمًا"},l={pending:{label:"معلّق",color:"bg-amber-100 text-amber-700"},reserved:{label:"محجوز",color:"bg-blue-100 text-blue-700"},fulfilled:{label:"تم التنفيذ",color:"bg-green-100 text-green-700"},cancelled:{label:"ملغى",color:"bg-rose-100 text-rose-700"}}},92214:(e,t,s)=>{Promise.resolve().then(s.bind(s,17893))}},e=>{e.O(0,[730,540,949,441,255,358],()=>e(e.s=92214)),_N_E=e.O()}]);

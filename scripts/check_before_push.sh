@@ -89,4 +89,52 @@ if [ -n "$new_js" ]; then
 fi
 
 echo ""
+echo "🔍 فحص 4: هل فيه ملف .js جديد بـ suffix يدوي (v3, v4fix, إلخ) على نفس"
+echo "   الـhash الأساسي لملف صفحة موجود، بينما الملف 'النظيف' (بلا أي suffix"
+echo "   — وهو ما يحدد التنفيذ الفعلي في React) لم يتحدّث بنفس المحتوى؟"
+echo "   (هذا بالضبط النمط اللي خلّى إصلاحات labels تُفقَد لجلستين كاملتين)"
+rsc_issue=0
+new_or_modified_js=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null | grep '\.js$' || true)
+for f in $new_or_modified_js; do
+    fname=$(basename "$f")
+    dir=$(dirname "$f")
+    # هل الاسم فيه suffix زيادة عن نمط النظيف (page-<16 hex>.js)؟
+    if echo "$fname" | grep -qE '^page-[0-9a-f]{16}\.js$'; then
+        continue  # ده نفسه الملف النظيف، مفيش مشكلة
+    fi
+    if ! echo "$fname" | grep -qE '^page-[0-9a-f]{16}'; then
+        continue  # اسم غير متعلق بنمط الصفحات أصلاً (احتياطي)
+    fi
+    # استخرج الـhash الأساسي (أول 16 حرف hex بعد page-)
+    base_hash=$(echo "$fname" | grep -oE '^page-[0-9a-f]{16}')
+    clean_name="${base_hash}.js"
+    clean_path="$dir/$clean_name"
+    if [ ! -f "$clean_path" ]; then
+        echo "  ⚠️  $f: عنده suffix، والملف النظيف المطابق ($clean_path) غير موجود أصلاً — تجاهل إن كان هذا مقصودًا (نمط تسمية مختلف)."
+        continue
+    fi
+    clean_was_modified=$(echo "$new_or_modified_js" | grep -F "$clean_path" || true)
+    if [ -z "$clean_was_modified" ]; then
+        echo "  ❌ $f: تم تعديله في هذا الـcommit، لكن الملف النظيف ($clean_path)"
+        echo "     — وهو الملف الذي React فعليًا يحمّله — لم يتحدّث في نفس الـcommit."
+        echo "     تعديلك على $f لن يُنفَّذ من متصفح المستخدم أبدًا!"
+        rsc_issue=1
+    elif ! diff -q "$f" "$clean_path" >/dev/null 2>&1; then
+        echo "  ❌ $f: مختلف المحتوى عن الملف النظيف ($clean_path) رغم تعديل"
+        echo "     الأخير أيضًا في هذا الـcommit — تأكد إن المحتويين متطابقين تمامًا."
+        rsc_issue=1
+    fi
+done
+if [ "$rsc_issue" -eq 1 ]; then
+    echo ""
+    echo "❌ توقف! فيه تعديل لن يُنفَّذ فعليًا من المتصفح — راجع الرسائل أعلاه."
+    echo "   القاعدة: الملف الذي يحدد ما يُنفَّذ في المتصفح هو دائمًا الاسم"
+    echo "   'النظيف' page-<16 hex>.js بلا أي إضافة بعده. عدِّله مباشرة، أو"
+    echo "   بعد إنهاء تعديلك على نسخة بـsuffix، انسخ محتواها الكامل فوق"
+    echo "   الملف النظيف قبل الـcommit."
+    exit 1
+fi
+echo "  ✅ لا يوجد تعديل معزول عن الملف النظيف (RSC module الفعلي)"
+
+echo ""
 echo "✅ كل الفحوصات نجحت — آمن للـ push"

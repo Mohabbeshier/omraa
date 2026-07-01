@@ -123,11 +123,49 @@ done
 [ "$orphans" -eq 0 ] && echo "  ✅ لا يوجد ملفات يتيمة"
 echo ""
 
+echo "🔍 فحص 4: لكل صفحة .html، هل الملف الذي يُشغّله React فعليًا (RSC module،"
+echo "   مذكور داخل a:I[...]) هو نفس الملف المذكور في <script async> (وليس"
+echo "   preload hint قديم منسي يشاور على ملف مختلف)؟ هذا الفحص كان يمكنه"
+echo "   اكتشاف مشكلة labels.html الحرجة (v7reprint) لو شُغِّل بشكل دوري."
+rsc_drift=0
+for page in $page_dirs; do
+    html=$(fetch_raw "${page}.html" 2>/dev/null)
+    [ -z "$html" ] && continue
+    all_refs=$(echo "$html" | grep -oE "page-[0-9a-zA-Z]+\.js" | sort -u)
+    ref_count=$(echo "$all_refs" | grep -c . || true)
+    if [ "$ref_count" -gt 1 ]; then
+        clean_ref=$(echo "$all_refs" | grep -E "^page-[0-9a-f]{16}\.js$" || true)
+        suffixed_refs=$(echo "$all_refs" | grep -vE "^page-[0-9a-f]{16}\.js$" || true)
+        if [ -n "$clean_ref" ] && [ -n "$suffixed_refs" ]; then
+            # نتحقق فعليًا: هل محتوى الملف النظيف مطابق لكل ملفات الـsuffix، أو أقدم منها (خطر حقيقي)؟
+            clean_content=$(fetch_raw "_next/static/chunks/app/(app)/$page/$clean_ref" 2>/dev/null)
+            is_stale=0
+            for suf in $suffixed_refs; do
+                suf_content=$(fetch_raw "_next/static/chunks/app/(app)/$page/$suf" 2>/dev/null)
+                if [ "$clean_content" != "$suf_content" ]; then
+                    is_stale=1
+                fi
+            done
+            if [ "$is_stale" -eq 1 ]; then
+                echo "  ❌ خطر حقيقي: ${page}.html — الملف النظيف ($clean_ref) محتواه"
+                echo "     مختلف عن نسخة(نسخ) الـsuffix ($suffixed_refs). لو <script async>"
+                echo "     بيشاور على نسخة الـsuffix، فأي تعديل فيها لن يُنفَّذ من المتصفح!"
+                rsc_drift=1
+            else
+                echo "  ℹ️  ${page}.html فيها اسمان (نظيف + suffix) لكن المحتوى متطابق —"
+                echo "     غير خطير الآن، لكن يُفضَّل تنظيف preload tag ليشاور على الاسم النظيف فقط."
+            fi
+        fi
+    fi
+done
+[ "$rsc_drift" -eq 0 ] && echo "  ✅ لا يوجد خطر حقيقي (كل نسخ الـsuffix مطابقة للملف النظيف المُنفَّذ فعليًا)"
+
 echo "════════════════════════════════════════"
-if [ "$FAILED" -eq 0 ]; then
+if [ "$FAILED" -eq 0 ] && [ "$rsc_drift" -eq 0 ]; then
     echo "✅ كل الفحوصات نجحت — الموقع الحي سليم"
 else
     echo "❌ فيه مشاكل تحتاج مراجعة — راجع الأسطر أعلاه"
+    FAILED=1
 fi
 echo "════════════════════════════════════════"
 exit $FAILED

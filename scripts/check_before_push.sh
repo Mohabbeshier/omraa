@@ -5,6 +5,15 @@
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
+echo "🔍 فحص 0: هل فيه secrets (GitHub tokens) في أي ملف staged؟"
+if git diff --cached | grep -qE 'ghp_[A-Za-z0-9]{36}'; then
+    echo "❌ توقف! فيه GitHub PAT صريح في التعديلات. لن يقبله GitHub push protection أصلاً،"
+    echo "   لكن لازم نمسحه محليًا الآن قبل أي commit (استخدم git commit --amend لو الكوميت لسه محلي)."
+    exit 1
+fi
+echo "✅ لا يوجد secrets صريحة في الـ staging"
+echo ""
+
 echo "🔍 فحص 1: هل فيه ملفات preview-* staged بالخطأ؟"
 if git diff --cached --name-only | grep -q "^preview-"; then
     echo "❌ توقف! فيه ملفات preview- في الـ staging area. لازم تُشال قبل الـ commit."

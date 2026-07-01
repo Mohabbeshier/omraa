@@ -1,0 +1,3 @@
+# ملفات معاينة مؤقتة (staging local) - لا يجب أن تُنشر أبدًا على الموقع الحي
+preview-*.html
+preview-*.txt

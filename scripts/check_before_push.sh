@@ -21,10 +21,46 @@ if git diff --cached --name-only | grep -q "^preview-"; then
     exit 1
 fi
 echo "✅ لا يوجد ملفات preview- في الـ staging"
-
 echo ""
+
+echo "🔍 فحص 1.5: هل فيه استبدال نسخة كاملة لصفحة أساسية (يحتاج معاينة قبل النشر)؟"
+needs_preview=0
+# حالة 1: rename صريح يكتشفه git (نفس المحتوى أو شبيه، اسم مختلف)
+renames=$(git diff --cached --name-status -M --diff-filter=R | grep '\.js$' || true)
+if [ -n "$renames" ]; then
+    while IFS=$'\t' read -r status old_path new_path; do
+        echo "  ⚠️  استبدال (rename): $old_path → $new_path"
+        needs_preview=1
+    done <<< "$renames"
+fi
+# حالة 2: حذف + إضافة منفصلين لنفس "جذر" اسم الملف (نفس الصفحة، اسم مختلف بالكامل)
+deleted=$(git diff --cached --name-only --diff-filter=D | grep '\.js$' || true)
+added=$(git diff --cached --name-only --diff-filter=A | grep '\.js$' || true)
+for d in $deleted; do
+    d_base=$(basename "$d" | sed -E 's/(v[0-9]+[a-zA-Z0-9]*|final|fixed)?\.js$//')
+    for a in $added; do
+        a_base=$(basename "$a" | sed -E 's/(v[0-9]+[a-zA-Z0-9]*|final|fixed)?\.js$//')
+        if [ "$d_base" = "$a_base" ] && [ -n "$d_base" ]; then
+            echo "  ⚠️  استبدال كامل: $d → $a"
+            needs_preview=1
+        fi
+    done
+done
+if [ "$needs_preview" -eq 1 ]; then
+    if [ -z "${PREVIEWED_CONFIRM:-}" ]; then
+        echo "❌ توقف! هذا استبدال نسخة كاملة لصفحة أساسية."
+        echo "   لازم تعاين الملف الجديد أولاً (scripts/make_preview.py) وتتأكد بصريًا إنه شغال،"
+        echo "   ثم أعد المحاولة مع: PREVIEWED_CONFIRM=1 bash scripts/check_before_push.sh"
+        exit 1
+    fi
+    echo "  ✅ تم تأكيد المعاينة (PREVIEWED_CONFIRM=1)"
+else
+    echo "  (لا يوجد استبدال نسخة كاملة في هذا الـ commit)"
+fi
+echo ""
+
 echo "🔍 فحص 2: كل ملفات .js المعدّلة/الجديدة صحيحة syntax-wise؟"
-files=$(git diff --cached --name-only --diff-filter=ACM | grep '\.js$' || true)
+files=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.js$' || true)
 if [ -n "$files" ]; then
     for f in $files; do
         if [ -f "$f" ]; then
@@ -42,7 +78,7 @@ fi
 
 echo ""
 echo "🔍 فحص 3: هل فيه ملفات .js جديدة (chunks) غير مذكورة في أي .html/.txt؟"
-new_js=$(git diff --cached --name-only --diff-filter=A | grep '\.js$' || true)
+new_js=$(git diff --cached --name-only --diff-filter=AR | grep '\.js$' || true)
 if [ -n "$new_js" ]; then
     for f in $new_js; do
         basename_f=$(basename "$f")

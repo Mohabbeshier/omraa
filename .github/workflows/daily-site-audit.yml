@@ -1,0 +1,27 @@
+name: فحص دوري لسلامة الموقع
+
+"on":
+  schedule:
+    # كل يوم الساعة 6 صباحًا بتوقيت القاهرة (4 صباحًا UTC)
+    - cron: '0 4 * * *'
+  workflow_dispatch: {}  # يسمح بتشغيله يدويًا من تبويب Actions لو احتجنا فحصًا فوريًا
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: تنزيل الكود
+        uses: actions/checkout@v4
+
+      - name: تثبيت Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: تشغيل فحص سلامة الموقع
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/audit_live_site.sh
+        # لو الفحص فشل (خروج بكود غير صفر)، هذا الـ step وبالتالي الـ workflow
+        # كله يُعتبر "فاشل" في نظر GitHub — وهذا يُطلق إشعار بريد إلكتروني
+        # تلقائي مجاني من GitHub نفسه لصاحب الـ repo، بدون أي خدمة خارجية.

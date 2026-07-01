@@ -15,7 +15,7 @@ labels, orders, إلخ). الـ repo الفعلي هو فقط مخرجات Next.
 | الملف | حالة النشر | ملاحظات |
 |---|---|---|
 | `products/QuickAddModal.jsx` | ✅ منشور فعليًا | مُصرَّف إلى `_next/static/chunks/app/(app)/products/quickadd-8801.js`، مُحمَّل ديناميكيًا من `page-af0ae61df8622aa8v4fixed.js` |
-| `products/CollectionsModal.jsx` | ✅ منشور فعليًا | مُصرَّف إلى `collections-8803.js`، نفس آلية التحميل الديناميكي |
+| `products/CollectionsModal.jsx` | ✅ منشور فعليًا | مُصرَّف إلى `collections-8804fix.js`، نفس آلية التحميل الديناميكي |
 
 > **ملاحظة تاريخية:** كان يوجد أيضًا `ProductTools.jsx` يحتوي `EditProductModal`,
 > `BulkEditModal`, و`CollectionsModal` (نسخة قديمة). تم حذفه من هذا الأرشيف بعد

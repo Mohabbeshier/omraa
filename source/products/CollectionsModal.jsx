@@ -13,12 +13,13 @@ export default function CollectionsModal(props) {
     if (open) {
       setLoading(true);
       setError("");
-      supabase.rpc("pos_fn_list_collections").then(({ data }) => {
+      supabase.rpc("pos_fn_list_collections_for_product", { p_product_id: productId }).then(({ data }) => {
         setCollections(data || []);
+        setSelected((data || []).filter((c) => c.is_selected).map((c) => c.id));
         setLoading(false);
       });
     }
-  }, [open, supabase]);
+  }, [open, supabase, productId]);
 
   if (!open) return null;
 

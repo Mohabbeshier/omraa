@@ -1,5 +1,4 @@
 (self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[8803],{88803:(e,t,s)=>{"use strict";s.r(t),s.d(t,{default:()=>CollectionsModal});var n=s(12115);
-
 export default function CollectionsModal(props) {
   const {
     open,
@@ -18,14 +17,17 @@ export default function CollectionsModal(props) {
     if (open) {
       setLoading(true);
       setError("");
-      supabase.rpc("pos_fn_list_collections").then(({
+      supabase.rpc("pos_fn_list_collections_for_product", {
+        p_product_id: productId
+      }).then(({
         data
       }) => {
         setCollections(data || []);
+        setSelected((data || []).filter(c => c.is_selected).map(c => c.id));
         setLoading(false);
       });
     }
-  }, [open, supabase]);
+  }, [open, supabase, productId]);
   if (!open) return null;
   function toggle(id) {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);

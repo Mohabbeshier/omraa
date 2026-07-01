@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تشخيص سرعة الباركود</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background:#0f172a; color:#e2e8f0; padding:20px; direction:rtl; }
+  h1 { font-size: 20px; color:#818cf8; }
+  input { width:100%; padding:14px; font-size:18px; border-radius:10px; border:2px solid #334155; background:#1e293b; color:#e2e8f0; margin:10px 0; box-sizing:border-box; }
+  button { width:100%; padding:14px; font-size:18px; border-radius:10px; border:none; background:#4f46e5; color:white; font-weight:bold; }
+  .result { margin-top:20px; padding:16px; border-radius:10px; font-size:20px; text-align:center; font-weight:bold; }
+  .fast { background:#065f46; color:#a7f3d0; }
+  .slow { background:#7c2d12; color:#fed7aa; }
+  .verybad { background:#7f1d1d; color:#fecaca; }
+  .waiting { background:#334155; color:#94a3b8; }
+  .log { margin-top:16px; font-size:13px; color:#64748b; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>🔍 تشخيص سرعة قراءة الباركود</h1>
+  <p>امسح أي باركود قطعة حقيقية (أو اكتبه) واضغط اختبار — هيقول لك بالضبط كام ثانية استغرق الاتصال بالسيرفر، من جهازك ده وشبكتك دي.</p>
+  <input id="barcode" placeholder="امسح أو اكتب الباركود هنا..." autofocus>
+  <button onclick="test()">اختبار السرعة الآن</button>
+  <div id="result" class="result waiting">في انتظار الاختبار...</div>
+  <div id="log" class="log"></div>
+
+<script>
+const URL = "https://mjetglnmivwphxyzflsz.supabase.co";
+const KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
+
+document.getElementById('barcode').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); test(); }
+});
+
+async function test() {
+  const barcode = document.getElementById('barcode').value.trim();
+  const resultEl = document.getElementById('result');
+  const logEl = document.getElementById('log');
+  if (!barcode) { resultEl.textContent = "اكتب أو امسح باركود الأول"; return; }
+
+  resultEl.className = "result waiting";
+  resultEl.textContent = "⏳ بيقيس دلوقتي...";
+  logEl.textContent = "بدأ الاختبار: " + new Date().toLocaleTimeString('ar-EG') + "\n";
+
+  const start = performance.now();
+  let timedOut = false;
+  const timeoutWarn = setTimeout(() => {
+    timedOut = true;
+    resultEl.className = "result slow";
+    resultEl.textContent = "⚠️ عدّى 8 ثواني ولسه مستني رد من السيرفر...";
+  }, 8000);
+
+  try {
+    const resp = await fetch(
+      `${URL}/rest/v1/pos_items_scan?select=id,barcode,status&barcode=eq.${encodeURIComponent(barcode)}&limit=1`,
+      { headers: { apikey: KEY, Authorization: `Bearer ${KEY}` } }
+    );
+    const elapsed = performance.now() - start;
+    clearTimeout(timeoutWarn);
+    const data = await resp.json();
+
+    logEl.textContent += `الوقت المُستغرَق: ${elapsed.toFixed(0)} مللي ثانية\n`;
+    logEl.textContent += `HTTP status: ${resp.status}\n`;
+    logEl.textContent += `النتيجة: ${JSON.stringify(data)}\n`;
+    logEl.textContent += `نوع الاتصال: ${navigator.connection ? navigator.connection.effectiveType : "غير معروف"}\n`;
+
+    if (elapsed < 500) {
+      resultEl.className = "result fast";
+      resultEl.textContent = `✅ سريع جدًا — ${elapsed.toFixed(0)} مللي ثانية`;
+    } else if (elapsed < 3000) {
+      resultEl.className = "result slow";
+      resultEl.textContent = `⚠️ بطيء نسبيًا — ${(elapsed/1000).toFixed(1)} ثانية`;
+    } else {
+      resultEl.className = "result verybad";
+      resultEl.textContent = `🔴 بطيء جدًا — ${(elapsed/1000).toFixed(1)} ثانية`;
+    }
+  } catch (err) {
+    clearTimeout(timeoutWarn);
+    const elapsed = performance.now() - start;
+    resultEl.className = "result verybad";
+    resultEl.textContent = `❌ فشل الاتصال بعد ${(elapsed/1000).toFixed(1)} ثانية`;
+    logEl.textContent += `خطأ: ${err.message}\n`;
+  }
+}
+</script>
+</body>
+</html>

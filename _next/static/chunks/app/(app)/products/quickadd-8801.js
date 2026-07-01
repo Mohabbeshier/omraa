@@ -37,7 +37,8 @@ export default function QuickAddModal(props) {
     open,
     onClose,
     onSaved,
-    supabase
+    supabase,
+    cloneData
   } = props;
   const [step, setStep] = n.useState(1);
   const [name, setName] = n.useState("");
@@ -60,10 +61,18 @@ export default function QuickAddModal(props) {
   n.useEffect(() => {
     if (open) {
       setStep(1);
-      setName("");
-      setBrand("");
-      setSellPrice("");
-      setCostPrice("");
+      if (cloneData) {
+        setName(cloneData.name ? cloneData.name + " (نسخة)" : "");
+        setBrand(cloneData.brand || "");
+        setSellPrice(cloneData.sell_price != null ? String(cloneData.sell_price) : "");
+        setCostPrice("");
+        setCategory(cloneData.category || "عام");
+      } else {
+        setName("");
+        setBrand("");
+        setSellPrice("");
+        setCostPrice("");
+      }
       setSku("");
       setSelectedColors([]);
       setCustomColor("");
@@ -78,7 +87,7 @@ export default function QuickAddModal(props) {
       }) => {
         if (data && data.categories && data.categories.length) {
           setCategories(data.categories);
-          setCategory(data.categories[0]);
+          if (!cloneData) setCategory(data.categories[0]);
         }
       });
       supabase.rpc("pos_fn_known_variants").then(({
@@ -90,7 +99,7 @@ export default function QuickAddModal(props) {
         }
       });
     }
-  }, [open, supabase]);
+  }, [open, supabase, cloneData]);
   if (!open) return null;
   const colorPool = [...new Set([...BASE_COLORS.map(c => c.name), ...(knownColors || [])])];
   const sizePool = [...new Set([...BASE_SIZES, ...(knownSizes || [])])].sort((a, b) => {
@@ -242,7 +251,9 @@ export default function QuickAddModal(props) {
     className: "text-slate-400 hover:text-slate-600 p-1"
   }, "✕")), /*#__PURE__*/n.createElement("div", {
     className: "p-4 space-y-4"
-  }, error && /*#__PURE__*/n.createElement("div", {
+  }, cloneData && !lastCreated && /*#__PURE__*/n.createElement("div", {
+    className: "bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs rounded-xl p-2.5"
+  }, "📋 نسخ من \"", cloneData.name, "\" — البيانات الأساسية مُعبّاة، حدد الكميات الجديدة"), error && /*#__PURE__*/n.createElement("div", {
     className: "bg-rose-50 border border-rose-200 text-rose-700 text-sm rounded-xl p-3"
   }, error), lastCreated ? /*#__PURE__*/n.createElement("div", {
     className: "text-center py-6 space-y-3"

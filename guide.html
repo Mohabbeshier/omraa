@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>دليل استخدام نظام الأمراء</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+:root{--ink:#1e1b4b;--indigo:#4f46e5;--indigo-soft:#eef2ff;--line:#e5e7eb;--warn-bg:#fffbeb;--warn-line:#f59e0b;--ok-bg:#f0fdf4;--ok-line:#16a34a;--muted:#6b7280}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Tajawal',sans-serif;background:#f8fafc;color:var(--ink);line-height:1.9;padding:0 0 60px}
+header{background:linear-gradient(135deg,#4f46e5,#4338ca);color:#fff;padding:34px 20px;text-align:center}
+header h1{font-size:26px;font-weight:800}
+header p{opacity:.85;margin-top:6px;font-size:14px}
+main{max-width:820px;margin:24px auto;padding:0 16px}
+.toc{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin-bottom:22px}
+.toc h2{font-size:16px;color:var(--indigo);margin-bottom:10px}
+.toc a{color:var(--ink);text-decoration:none;display:inline-block;background:var(--indigo-soft);border-radius:99px;padding:3px 14px;margin:3px 2px;font-size:13.5px}
+details{background:#fff;border:1px solid var(--line);border-radius:14px;margin-bottom:14px;overflow:hidden}
+summary{cursor:pointer;padding:16px 20px;font-weight:800;font-size:17px;color:var(--indigo);list-style:none;display:flex;align-items:center;gap:10px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'◂';transition:.15s;color:#a5b4fc}
+details[open] summary::before{transform:rotate(-90deg)}
+.body{padding:0 22px 20px;font-size:15.5px}
+.body h3{font-size:15px;color:var(--indigo);margin:16px 0 6px}
+.body ol,.body ul{padding-right:22px;margin:6px 0}
+.body li{margin-bottom:5px}
+.step{background:var(--indigo-soft);border-radius:10px;padding:10px 16px;margin:8px 0}
+.warn{background:var(--warn-bg);border-right:4px solid var(--warn-line);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:14.5px}
+.ok{background:var(--ok-bg);border-right:4px solid var(--ok-line);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:14.5px}
+kbd{background:var(--ink);color:#fff;border-radius:6px;padding:1px 9px;font-size:13px;font-family:inherit}
+.tag{background:var(--indigo);color:#fff;border-radius:6px;padding:1px 9px;font-size:12.5px;white-space:nowrap}
+.muted{color:var(--muted);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:right}
+th{background:var(--indigo-soft)}
+footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:30px}
+@media print{details{page-break-inside:avoid}details:not([open]) .body{display:block}summary::before{display:none}header{background:var(--indigo)}.toc{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>👑 دليل استخدام نظام الأمراء</h1>
+  <p>مرجع سريع لكل عمليات المحل اليومية — احتفظي به أو اطبعيه</p>
+</header>
+<main>
+
+<div class="toc">
+  <h2>المحتويات</h2>
+  <a href="#login">الدخول</a><a href="#sell">البيع</a><a href="#return">المرتجع والاستبدال</a><a href="#product">إضافة بضاعة</a><a href="#labels">طباعة الملصقات</a><a href="#inventory">المخزون</a><a href="#stocktake">الجرد</a><a href="#reorder">إعادة الطلب</a><a href="#customers">العملاء والنقاط</a><a href="#orders">الطلبات</a><a href="#accounting">المحاسبة</a><a href="#backup">النسخ الاحتياطي</a><a href="#users">الموظفون</a><a href="#trouble">حل المشاكل</a>
+</div>
+
+<details open id="login"><summary>🔐 تسجيل الدخول والخروج</summary><div class="body">
+<ol>
+<li>افتحي رابط النظام من المتصفح (احفظيه في المفضلة أو أضيفيه للشاشة الرئيسية من قائمة المتصفح).</li>
+<li>أدخلي البريد وكلمة السر ثم <span class="tag">دخول</span>.</li>
+<li>حساب <b>المالك</b> يرى كل شيء (المحاسبة، التكاليف، التجّار). حساب <b>الموظف</b> يرى البيع والمخزون فقط — بدون أرقام تكلفة أو ربح.</li>
+</ol>
+<div class="warn">لا تشاركي كلمة سر المالك مع أي موظف. لكل موظف حسابه الخاص من صفحة «المستخدمون».</div>
+</div></details>
+
+<details id="sell"><summary>🛒 البيع (شاشة الكاشير)</summary><div class="body">
+<h3>بيع عادي</h3>
+<ol>
+<li>افتحي صفحة <b>البيع</b>.</li>
+<li>امسحي باركود كل قطعة بالماسح — تظهر في الفاتورة فورًا.</li>
+<li>لإضافة خصم: اكتبي قيمة الخصم في خانته.</li>
+<li>لربط البيع بعميل (نقاط الولاء): اختاري العميل أو أضيفي عميل جديد.</li>
+<li>اختاري طريقة الدفع (نقدًا / بطاقة / مختلط) واضغطي إتمام البيع.</li>
+</ol>
+<div class="ok">كل قطعة لها باركود خاص بها — النظام يخصم القطعة نفسها من المخزون تلقائيًا، ولا يمكن بيع نفس القطعة مرتين.</div>
+<h3>لو الباركود اتأخر</h3>
+<p>لو ظهرت رسالة «بطء في الاتصال» انتظري ثانية وأعيدي المسح — النظام يعيد المحاولة بنفسه. راجعي قسم <a href="#trouble">حل المشاكل</a>.</p>
+</div></details>
+
+<details id="return"><summary>↩️ المرتجع والاستبدال</summary><div class="body">
+<h3>مرتجع (استرداد فلوس)</h3>
+<ol>
+<li>من صفحة <b>المرتجعات</b> ← <span class="tag">مرتجع جديد</span>.</li>
+<li>امسحي باركود القطعة أو اكتبيه (أو <span class="tag">مسح بالكاميرا</span> من الموبايل).</li>
+<li>اكتبي «سبب الإرجاع» (مثال: مقاس غير مناسب، عيب مصنع).</li>
+<li>اضغطي <span class="tag">إتمام الإرجاع</span> — القطعة ترجع للمخزون والمبلغ يظهر لك لترديه للعميلة.</li>
+</ol>
+<div class="warn">لو عدّت مدة الإرجاع المسموحة، الخيار «تجاوز مهلة الإرجاع» يشتغل بحساب المالك فقط.</div>
+<h3>استبدال (قطعة بقطعة)</h3>
+<ol>
+<li>من شاشة البيع افتحي الفاتورة القديمة واختاري «إرجاع صنف» ثم الاستبدال، أو نفّذي الاستبدال من تفاصيل الفاتورة.</li>
+<li>امسحي باركود القطعة <b>المُرجعة</b> ثم باركود القطعة <b>الجديدة</b>.</li>
+<li>النظام يحسب فرق السعر بنفسه ويعرض: «يدفع العميل …» أو «يُرتجع للعميل …» أو «لا يوجد فرق».</li>
+</ol>
+<p class="muted">كل مرتجع واستبدال مسجّل باسم من نفّذه وتاريخه — سجل كامل في «سجل المرتجعات».</p>
+</div></details>
+
+<details id="product"><summary>👠 إضافة بضاعة جديدة (المنتجات)</summary><div class="body">
+<div class="warn">إضافة المنتجات وتعديل الأسعار <b>للمالك فقط</b>.</div>
+<ol>
+<li>صفحة <b>المنتجات</b> ← منتج جديد.</li>
+<li>اكتبي اسم المنتج (مثال: حذاء كلاسيك جلد)، الفئة، سعر البيع، وسعر التكلفة.</li>
+<li>حددي المقاسات والألوان وعدد القطع من كل مقاس/لون.</li>
+<li>احفظي — النظام يولّد باركود فريد لكل قطعة تلقائيًا.</li>
+<li>اذهبي فورًا لصفحة <b>الملصقات</b> لطباعة باركودات القطع الجديدة.</li>
+</ol>
+<div class="ok">وصلك نفس الموديل تاني؟ استخدمي «نسخة من…» بدل ما تكتبي كل حاجة من الأول.</div>
+</div></details>
+
+<details id="labels"><summary>🏷️ طباعة الملصقات (الباركود)</summary><div class="body">
+<ol>
+<li>صفحة <b>الملصقات</b> تعرض تلقائيًا كل القطع التي تحتاج طباعة أو إعادة طباعة.</li>
+<li>اختاري المنتج وعدد القطع (اتركي الخانة فارغة لطباعة الكل).</li>
+<li>اضغطي <span class="tag">طباعة الآن</span> وانتظري «جاهز — اضغط طباعة».</li>
+</ol>
+<h3>تصحيح مقاس مطبوع غلط</h3>
+<p>من نفس الصفحة: <span class="tag">تصحيح مقاس</span> ← اكتبي المقاس الحالي (الغلط) والمقاس الصحيح وعدد القطع — النظام يصحح البيانات ويطبع ملصقات جديدة.</p>
+<div class="warn">لو الطباعة خرجت باهتة أو بمقاس غلط: المشكلة في إعدادات الطابعة نفسها وليست في النظام — راجعي قسم <a href="#trouble">حل المشاكل</a>.</div>
+</div></details>
+
+<details id="inventory"><summary>📦 المخزون</summary><div class="body">
+<ul>
+<li>صفحة <b>المخزون</b> تعرض كل الأصناف: المتاح، المباع، السعر، المقاس، اللون.</li>
+<li>البحث يشتغل بالاسم أو اللون أو المقاس.</li>
+<li>الفلاتر: <span class="tag">متوفر</span> <span class="tag">منخفض</span> <span class="tag">نفد</span> — راقبي «منخفض» يوميًا.</li>
+</ul>
+</div></details>
+
+<details id="stocktake"><summary>📋 الجرد</summary><div class="body">
+<p>الجرد = مطابقة القطع الموجودة فعليًا في المحل مع النظام. يُفضّل شهريًا أو عند الشك في نقص.</p>
+<ol>
+<li>صفحة <b>الجرد</b> ← <span class="tag">بدء جرد جديد</span>.</li>
+<li>امسحي باركود كل قطعة موجودة فعليًا في المحل، واحدة واحدة.</li>
+<li>النظام يعرض: المتوقع / الفعلي / الفرق لكل صنف.</li>
+<li>في النهاية: <span class="tag">إغلاق الجرد وتسوية الفرق</span> — أي قطعة ناقصة تُسجّل كعجز موثّق.</li>
+</ol>
+<div class="warn">لا تبدئي جردًا وتتركيه مفتوحًا أيامًا — أنهيه في نفس اليوم حتى لا تختلط الأرقام مع البيع الجاري.</div>
+</div></details>
+
+<details id="reorder"><summary>🔄 إعادة الطلب (للمالك)</summary><div class="body">
+<p>صفحة <b>إعادة الطلب</b> تحسب لك تلقائيًا من واقع البيع:</p>
+<ul>
+<li>مبيعات آخر ٧ و٣٠ يوم لكل منتج، ومتوسط البيع اليومي.</li>
+<li><b>أيام التغطية</b>: كم يوم يكفي المخزون الحالي بمعدل البيع الحالي.</li>
+<li>قسم «يحتاج إعادة طلب» = اطلبي من التاجر قبل ما ينفد.</li>
+</ul>
+<div class="ok">راجعيها مرة أسبوعيًا — هي أدق من الإحساس، لأنها مبنية على أرقام البيع الفعلية.</div>
+</div></details>
+
+<details id="customers"><summary>👥 العملاء ونقاط الولاء</summary><div class="body">
+<ol>
+<li>صفحة <b>العملاء</b> ← إضافة عميل جديد (الاسم إجباري، الهاتف اختياري لكن مهم للواتساب).</li>
+<li>اربطي كل بيع بالعميلة من شاشة الكاشير — تتجمع لها نقاط ولاء تلقائيًا.</li>
+<li>النقاط تُستبدل بخصم في مشتريات قادمة من شاشة البيع.</li>
+<li>زر <span class="tag">واتساب</span> بجانب كل عميلة يفتح محادثة جاهزة برسالة عن نقاطها 🎁 — استخدميه لتنشيط العميلات المميزات وVIP.</li>
+</ol>
+</div></details>
+
+<details id="orders"><summary>🧾 الطلبات (الحجز)</summary><div class="body">
+<p>لطلبات العميلات غير الفورية (حجز تليفوني/أونلاين):</p>
+<ul>
+<li><span class="tag">حجز المخزون</span>: القطعة تُحجز باسم العميلة ولا تُباع لغيرها، لكنها لم تُخصم بعد.</li>
+<li><span class="tag">تنفيذ الطلب</span>: عند الاستلام والدفع — تتحول لفاتورة بيع عادية.</li>
+<li><span class="tag">إلغاء</span>: القطعة ترجع متاحة للبيع فورًا.</li>
+<li>طرق الدفع: دفع عند الاستلام أو مدفوع مقدمًا.</li>
+</ul>
+</div></details>
+
+<details id="accounting"><summary>💰 المحاسبة (للمالك فقط)</summary><div class="body">
+<ul>
+<li><b>الملخص:</b> صافي المبيعات / الربح الإجمالي / المصروفات / صافي الربح — لأي فترة تختارينها.</li>
+<li><b>تسجيل مصروف:</b> إيجار، رواتب، كهرباء ومياه، تسويق، شراء بضاعة، صيانة… سجّلي كل مصروف يوم حدوثه حتى يكون «صافي الربح» حقيقيًا.</li>
+<li><b>دفتر اليومية:</b> كل فاتورة بتكلفتها وربحها.</li>
+</ul>
+<div class="ok">أرقام التكلفة والربح لا تظهر إطلاقًا لحسابات الموظفين — لا في الشاشة ولا في البيانات.</div>
+</div></details>
+
+<details id="backup"><summary>🛡️ النسخ الاحتياطي</summary><div class="body">
+<ul>
+<li>النظام يسجّل كل تغيير (إضافة/تعديل/حذف) تلقائيًا في سجل دائم.</li>
+<li>من صفحة <b>النسخ الاحتياطي</b> اعملي <span class="tag">نسخة يدوية</span> مرة أسبوعيًا على الأقل، وقبل أي تعديل كبير.</li>
+</ul>
+</div></details>
+
+<details id="users"><summary>👤 الموظفون (للمالك)</summary><div class="body">
+<ul>
+<li>صفحة <b>المستخدمون</b>: إضافة حساب لكل موظف بدوره (مالك / موظف).</li>
+<li>موظف مشى؟ اضغطي <span class="tag">تعطيل</span> فورًا — حسابه يتوقف في نفس اللحظة دون حذف سجلاته.</li>
+<li>كل عملية في النظام مسجّلة باسم من نفّذها — البيع والمرتجع والتعديل.</li>
+</ul>
+</div></details>
+
+<details id="trouble"><summary>🔧 حل المشاكل الشائعة</summary><div class="body">
+<table>
+<tr><th>المشكلة</th><th>الحل</th></tr>
+<tr><td>الباركود بيتأخر أو ظهرت «بطء في الاتصال»</td><td>ثبّتي الماسح على بُعد ١٠–١٥ سم من الملصق بدون اهتزاز. لو استمرت، جربي شبكة الواي فاي أو افتحي بيانات الموبايل مؤقتًا — غالبًا المشكلة من الإنترنت.</td></tr>
+<tr><td>الماسح لا يقرأ ملصقًا معينًا</td><td>الملصق باهت أو مجعّد — اطبعي بداله من صفحة الملصقات، أو اكتبي رقمه يدويًا في خانة الباركود.</td></tr>
+<tr><td>طباعة الملصقات باهتة / خارج الإطار</td><td>من إعدادات الطابعة على الجهاز: تأكدي أن Media Type مضبوط على نوع الورق الحراري الصحيح، واعملي معايرة (Calibration) للطابعة، وفي نافذة الطباعة اجعلي Scale = 100%.</td></tr>
+<tr><td>الصفحة لا تفتح أو بطيئة جدًا</td><td>حدّثي الصفحة (اسحبي لأسفل في الموبايل أو <kbd>Ctrl+R</kbd>). لو استمرت: تأكدي من الإنترنت ثم أغلقي المتصفح وافتحيه.</td></tr>
+<tr><td>«القطعة غير متاحة» عند البيع</td><td>القطعة مباعة أو محجوزة في طلب. ابحثي عن باركودها في المخزون لمعرفة حالتها.</td></tr>
+<tr><td>نسيت كلمة السر</td><td>تواصلي مع الدعم الفني لإعادة تعيينها.</td></tr>
+</table>
+</div></details>
+
+<footer>نظام الأمراء — دليل الاستخدام · نسخة يوليو ٢٠٢٦</footer>
+</main>
+</body>
+</html>

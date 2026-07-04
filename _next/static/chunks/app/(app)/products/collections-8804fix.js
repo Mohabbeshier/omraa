@@ -1,5 +1,5 @@
 (self.webpackChunk_N_E=self.webpackChunk_N_E||[]).push([[8803],{88803:(e,t,s)=>{"use strict";s.r(t),s.d(t,{default:()=>CollectionsModal});var n=s(12115);
-export default function CollectionsModal(props) {
+function CollectionsModal(props) {
   const {
     open,
     onClose,
@@ -119,4 +119,4 @@ export default function CollectionsModal(props) {
     className: "w-full btn-primary text-sm disabled:opacity-50"
   }, saving ? "جارٍ الحفظ..." : "حفظ")))));
 }
-}}]);
+}},e=>{self.__webpack_require__=e}]);

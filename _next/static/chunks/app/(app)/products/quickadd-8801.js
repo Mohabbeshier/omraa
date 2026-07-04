@@ -32,7 +32,7 @@ const BASE_COLORS = [{
   hex: "#c0c0c0"
 }];
 const BASE_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43"];
-export default function QuickAddModal(props) {
+function QuickAddModal(props) {
   const {
     open,
     onClose,
@@ -463,4 +463,4 @@ export default function QuickAddModal(props) {
     className: "btn-primary text-sm px-5 disabled:opacity-50"
   }, saving ? "جارٍ الحفظ..." : "حفظ المنتج")))));
 }
-}}]);
+}},e=>{self.__webpack_require__=e}]);

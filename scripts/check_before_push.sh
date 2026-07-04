@@ -1,4 +1,12 @@
 #!/bin/bash
+
+# ── فحص: لازم نكون على فرع main فعليًا (مش detached HEAD) ──
+CUR_BRANCH=$(git -C "$(dirname "$0")/.." symbolic-ref --short -q HEAD || echo "DETACHED")
+if [ "$CUR_BRANCH" != "main" ]; then
+  echo "❌ HEAD مش على main (الحالي: $CUR_BRANCH) — الكوميتات هتضيع والدفع هيقول up-to-date وهو مبيدفعش حاجة"
+  exit 1
+fi
+
 # check_before_push.sh — فحص إلزامي قبل أي git push على هذا المشروع.
 # الاستخدام: bash scripts/check_before_push.sh
 

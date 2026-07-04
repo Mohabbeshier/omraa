@@ -84,5 +84,27 @@ async function test() {
   }
 }
 </script>
+
+<div class="card" style="margin-top:16px">
+  <h2 style="font-size:16px;font-weight:700">📊 سجل آخر 50 مسحة (POS)</h2>
+  <p style="font-size:13px;color:#64748b">cache = فوري من الذاكرة · net = شبكة · timeout = انقطاع · notfound = غير موجود</p>
+  <div id="scanlog" style="font-family:monospace;font-size:12px;margin-top:8px"></div>
+  <script>
+  (function(){
+    try{
+      var a=JSON.parse(localStorage.getItem("omraa_scan_log")||"[]");
+      var el=document.getElementById("scanlog");
+      if(!a.length){el.textContent="لا توجد مسحات مسجلة بعد — افتح POS وامسح ثم ارجع هنا.";return}
+      var stats={};a.forEach(function(r){stats[r.src]=stats[r.src]||{n:0,ms:0};stats[r.src].n++;stats[r.src].ms+=r.ms});
+      var sm="";for(var k in stats)sm+=k+": "+stats[k].n+" مسحة، متوسط "+Math.round(stats[k].ms/stats[k].n)+"ms · ";
+      var rows=a.slice(-15).reverse().map(function(r){
+        var d=new Date(r.t);
+        return d.getHours()+":"+String(d.getMinutes()).padStart(2,"0")+" — "+r.src+" — "+r.ms+"ms";
+      }).join("<br>");
+      el.innerHTML="<b>"+sm+"</b><br><br>"+rows;
+    }catch(e){document.getElementById("scanlog").textContent="تعذر قراءة السجل";}
+  })();
+  </script>
+</div>
 </body>
 </html>

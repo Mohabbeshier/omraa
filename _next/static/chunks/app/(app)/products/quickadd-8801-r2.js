@@ -32,7 +32,8 @@ const BASE_COLORS = [{
   hex: "#c0c0c0"
 }];
 const BASE_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43"];
-function QuickAddModal(props = {}) {
+function QuickAddModal(props) {
+  props = props || {};
   const {
     open,
     onClose,

@@ -1,0 +1,78 @@
+-- Omraa catalog restore snapshot @ 2026-07-07 (قبل تصفير الداتا)
+-- الاستعادة: شغّل الملف ده في SQL editor بتاع Supabase (schema pos موجود).
+-- ملاحظة: ده الكتالوج فقط (منتجات/تكاليف/باركود الأصناف) — مش القطع/المبيعات (دي اتصفّرت عمدًا).
+
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa','حذاء طبي مخيط','كاجوال','Gr15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-26 16:15:24.331285+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98','حذاء طبي مخيط','كاجوال','go15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-27 20:32:41.102145+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1','حذاء طبي مخيط','كاجوال','R15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-28 15:32:12.940197+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2','حذاء طبي مخيط','كاجوال','pi15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-28 16:03:11.513621+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','حذاء طبي مخيط','كاجوال','B15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-25 19:03:35.935143+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8','حذاء طبي مخيط','كاجوال','H15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-26 15:15:38.810377+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','حذاء طبي مخيط','كاجوال','15',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-28 19:38:19.301179+00') ON CONFLICT (id) DO NOTHING;
+INSERT INTO pos.products(id,name,category,base_sku,sell_price,status,supplier_id,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','حذاء طبي مخيط','كاجوال','15_2',550.00,'active','6e515fd4-a069-417f-af25-5a2eb3741695','2026-06-30 11:54:13.557237+00') ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb',300.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8',300.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa',300.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98',300.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1',330.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2',330.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1',330.00) ON CONFLICT (product_id) DO NOTHING;
+INSERT INTO pos.product_costs(product_id,cost_price) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac',330.00) ON CONFLICT (product_id) DO NOTHING;
+
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','44','اخضر','00000193011545','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','43','بني','00620000002320','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','38','اسود','00620000002408','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','41','اخضر','00000193013002','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98','42','دهبي','00620000002225','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1','42','أحمر','00000129400354','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2','43','بيج','00000115133337','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8','43','هافان','00620000002154','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','41','جملي','00000193012030','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','44','بني','00620000002343','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2','44','بيج','00000115130383','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','42','فضي','00000193010142','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','43','أبيض','00620000002305','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','44','اسود','00620000002085','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','43','ازرق','00620000002315','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa','44','رمادي','00620000002208','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','44','أبيض','00620000002335','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2','42','بيج','00000115131489','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','42','جملي','00000193010496','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('c3f2e520-9418-4481-af9d-af6326ea89e2','41','بيج','00000115130927','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98','43','دهبي','00620000002243','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1','43','أحمر','00000129400714','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','41','ابيض','00620000002444','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','37','اسود','00620000002405','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8','42','هافان','00620000002138','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','41','جملي','00620000002257','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa','42','رمادي','00620000002186','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98','41','دهبي','00620000002218','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','43','جملي','00620000002427','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','42','ازرق','00620000002281','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','43','ابيض','00620000002437','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','41','بني','00620000002264','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa','41','رمادي','00620000002175','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('442caf73-5f3c-495d-ad7b-6ad9844da1aa','43','رمادي','00620000002198','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','42','أبيض','00620000002268','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','43','اخضر','00000193010095','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','42','كحلي','00620000002272','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('bf76f26a-2d6f-4308-929e-58c408c51d98','44','دهبي','00620000002246','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','44','جملي','00620000002336','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','42','اسود','00620000002023','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8','44','هافان','00620000002164','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','40','اسود','00620000002359','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1','41','أحمر','00000129400254','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','41','اسود','00620000002036','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('356d473b-c09e-4cb6-a56e-e796df8aabb8','41','هافان','00620000002129','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('1c76bb25-edee-470b-92b6-153d0343fcd1','44','أحمر','00000129400734','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('38c5033d-865c-41b8-8878-1ddfad042fcb','43','اسود','00620000002064','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','44','ابيض','00620000002440','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','43','فضي','00000193011848','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','42','اخضر','00000193010003','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','41','فضي','00000193014279','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','42','بني','00620000002287','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','44','ازرق','00620000002339','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('17569b87-1ec1-4b19-9b5b-990502b327ac','43','كحلي','00620000002309','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','44','فضي','00000193010830','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;
+INSERT INTO pos.variant_barcodes(product_id,size,color,barcode,created_at) VALUES ('6b583ae7-8e5d-4f3f-a04b-b5bbc92da6f1','44','جملي','00620000002431','2026-07-06 16:35:31.598125+00') ON CONFLICT DO NOTHING;

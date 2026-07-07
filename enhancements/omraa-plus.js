@@ -1,144 +1,184 @@
 /* ============================================================
-   Omraa Plus — طبقة تحسينات نضيفة (Source-of-truth للميزات الجديدة)
+   Omraa Plus v2 — تحسينات داخل صفحات النظام (سورس نضيف)
    ------------------------------------------------------------
-   • تُحقن كـ <script type="module"> في صفحات النظام.
-   • بتشتغل بنفس جلسة دخول المستخدم تلقائيًا (نفس storageKey الافتراضي).
-   • إضافية 100%: بتتركب في حاوية خارج جذر React، فمابتصطدمش بالتطبيق المتبني.
-   • الرجوع بالكامل: احذف الملف ده + سطر <script> المحقون في الصفحات.
-   • لإضافة ميزة لصفحة تانية: سطر واحد في ROUTES + دالة render.
+   • بيقرا جلسة الدخول من كوكيز التطبيق نفسها (@supabase/ssr) → نفس تسجيل دخولك.
+   • بيتركّب جوّه الصفحة بنفس ستايل الموقع (slate/indigo/Tajawal) — مش عنصر منفصل.
+   • v2: صفحة البيع — «بيع بالاسم بدون باركود».
+   • الرجوع: احذف الملف + سطر <script> من الصفحات.
    ============================================================ */
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-const SUPABASE_URL  = "https://mjetglnmivwphxyzflsz.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
-// إعداد افتراضي => بيقرا نفس جلسة الدخول المخزّنة للتطبيق:
-const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+const URL0 = "https://mjetglnmivwphxyzflsz.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
+console.log("[omraa-plus] v2 loaded");
 
-/* ---------- أدوات مساعدة ---------- */
-const mk  = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
-const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[m]));
-const norm = s => String(s ?? "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").trim();
+/* ---- قراءة توكن الجلسة من كوكيز التطبيق (يدعم base64- والتقسيم .0/.1) ---- */
+function readAccessToken() {
+  try {
+    const parts = document.cookie.split(/;\s*/).map(c => {
+      const i = c.indexOf("="); return [c.slice(0, i), c.slice(i + 1)];
+    });
+    const chunks = parts
+      .filter(([k]) => /^sb-mjetglnmivwphxyzflsz-auth-token(\.\d+)?$/.test(k))
+      .sort((a, b) => (a[0].split(".")[1] | 0) - (b[0].split(".")[1] | 0))
+      .map(([, v]) => v).join("");
+    if (!chunks) return null;
+    let raw = decodeURIComponent(chunks);
+    if (raw.startsWith("base64-")) {
+      const b = raw.slice(7).replace(/-/g, "+").replace(/_/g, "/");
+      raw = atob(b + "=".repeat((4 - b.length % 4) % 4));
+    }
+    const j = JSON.parse(raw);
+    return (Array.isArray(j) ? j[0] : j.access_token) || null;
+  } catch { return null; }
+}
+const sb = createClient(URL0, ANON, { accessToken: async () => readAccessToken() });
 
-/* ---------- ستايل (كله مسبوق بـ op- عشان مايأثرش على الموقع) ---------- */
+/* ---- أدوات ---- */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[m]));
+const norm = s => String(s ?? "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).toLowerCase().trim();
+function setReactInput(el, val) {
+  const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+  set.call(el, val);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/* ---- ستايل مطابق للموقع (slate-50/white/indigo-600) ---- */
 const CSS = `
-#op-fab{position:fixed;left:16px;bottom:16px;z-index:2147483000;font-family:Tajawal,system-ui,sans-serif}
-#op-fab button{background:#4f46e5;color:#fff;border:0;border-radius:9999px;padding:11px 16px;font-weight:800;font-size:14px;
-  box-shadow:0 10px 26px rgba(79,70,229,.4);cursor:pointer;display:flex;gap:8px;align-items:center}
-#op-fab .op-badge{background:#ef4444;color:#fff;border-radius:9999px;padding:1px 8px;font-size:12px;min-width:20px;text-align:center}
-#op-panel{position:fixed;left:16px;bottom:72px;z-index:2147483000;width:min(380px,92vw);max-height:76vh;overflow:auto;
-  background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 24px 60px rgba(2,6,23,.28);
-  font-family:Tajawal,system-ui,sans-serif;display:none;direction:rtl}
-#op-panel.op-open{display:block}
-#op-panel .op-hd{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:12px 14px;font-weight:800;
-  display:flex;justify-content:space-between;align-items:center}
-#op-panel .op-hd button{border:0;background:transparent;font-size:18px;cursor:pointer;color:#64748b;padding:0 4px}
-#op-panel .op-sec{padding:12px 14px;border-bottom:1px solid #f1f5f9}
-#op-panel .op-sec h4{margin:0 0 8px;font-size:13px;color:#475569}
-#op-panel .op-inp{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:9px 11px;font:inherit}
-#op-panel .op-row{display:flex;justify-content:space-between;gap:8px;padding:7px 2px;border-bottom:1px dashed #eef2f7;font-size:13.5px}
-#op-panel .op-row:last-child{border-bottom:0}
-#op-panel .op-name{font-weight:600}
-#op-panel .op-pill{border-radius:9999px;padding:1px 9px;font-size:12px;font-weight:700;white-space:nowrap}
-#op-panel .op-low{background:#fef2f2;color:#dc2626}
-#op-panel .op-muted{color:#94a3b8;font-size:12.5px;text-align:center;padding:14px}
-#op-panel .op-spin{width:15px;height:15px;border:2px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;
-  display:inline-block;animation:opsp .7s linear infinite;vertical-align:middle;margin:8px auto;display:block}
-@keyframes opsp{to{transform:rotate(360deg)}}
+.opx-card{background:#fff;border:1px solid #f1f5f9;border-radius:16px;box-shadow:0 1px 2px rgba(2,6,23,.05);margin-top:12px;overflow:hidden;font-family:inherit}
+.opx-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:0;padding:14px 16px;cursor:pointer;font:inherit;font-weight:700;color:#0f172a;font-size:15px}
+.opx-toggle .opx-sub{color:#64748b;font-weight:500;font-size:12.5px}
+.opx-body{display:none;padding:0 16px 14px}
+.opx-open .opx-body{display:block}
+.opx-inp{width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;font:inherit;font-size:15px;background:#fff;color:#0f172a}
+.opx-inp:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.opx-prod{padding:12px 2px 4px;border-bottom:1px solid #f1f5f9}
+.opx-prod:last-child{border-bottom:0}
+.opx-pname{font-weight:700;color:#0f172a;font-size:14.5px;margin-bottom:8px}
+.opx-pname .opx-price{color:#4f46e5;font-weight:800;margin-inline-start:8px;font-size:13.5px}
+.opx-chips{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:8px}
+.opx-chip{border:1px solid #e2e8f0;background:#f8fafc;border-radius:9999px;padding:7px 13px;font:inherit;font-size:13px;font-weight:700;color:#334155;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.opx-chip:active{transform:scale(.97)}
+.opx-chip .opx-q{background:#eef2ff;color:#4f46e5;border-radius:9999px;padding:0 8px;font-size:12px}
+.opx-chip.opx-lo .opx-q{background:#fffbeb;color:#d97706}
+.opx-muted{color:#94a3b8;font-size:13px;text-align:center;padding:14px 0}
+.opx-ok{background:#ecfdf5;color:#059669;border-radius:12px;padding:10px 12px;font-size:13.5px;font-weight:700;margin-top:8px;display:none}
+.opx-spin{width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;display:block;margin:12px auto;animation:opxs .7s linear infinite}
+@keyframes opxs{to{transform:rotate(360deg)}}
 `;
 
-/* ---------- الحاوية (مرة واحدة، خارج جذر React) ---------- */
-let host, panel, bodyEl, built = false;
-function ensureHost() {
-  if (built) return;
-  built = true;
-  const st = mk("style"); st.id = "op-css"; st.textContent = CSS; document.head.appendChild(st);
-  host = mk("div"); host.id = "op-fab";
-  host.innerHTML = `<button type="button">🛠️ أدوات <span class="op-badge" id="op-badge">·</span></button>`;
-  panel = mk("div"); panel.id = "op-panel";
-  panel.innerHTML = `<div class="op-hd"><span id="op-title">أدوات</span><button type="button" title="إغلاق">✕</button></div><div id="op-body"></div>`;
-  document.body.appendChild(host);
-  document.body.appendChild(panel);
-  bodyEl = panel.querySelector("#op-body");
-  host.querySelector("button").onclick = () => panel.classList.toggle("op-open");
-  panel.querySelector(".op-hd button").onclick = () => panel.classList.remove("op-open");
+/* ============ ميزة البيع بالاسم (صفحة نقطة البيع) ============ */
+let mounted = null, cache = null, cacheAt = 0;
+
+function findScanInput() {
+  return [...document.querySelectorAll("input")].find(i => (i.placeholder || "").includes("امسح"));
 }
-const setTitle = t => panel.querySelector("#op-title").textContent = t;
-const setBadge = n => { const b = document.getElementById("op-badge"); if (b) b.textContent = n > 0 ? n : "·"; };
-
-/* ---------- ميزة: صفحة المنتجات ---------- */
-async function renderProducts() {
-  setTitle("أدوات المنتجات");
-  bodyEl.innerHTML = `
-    <div class="op-sec">
-      <h4>🔍 بحث سريع في المنتجات</h4>
-      <input class="op-inp" id="op-q" placeholder="اكتب اسم المنتج..." autocomplete="off">
-      <div id="op-qres"></div>
-    </div>
-    <div class="op-sec">
-      <h4>⚠️ قرب يخلّص / محتاج إعادة طلب</h4>
-      <div id="op-low"><span class="op-spin"></span></div>
-    </div>`;
-
-  // نواقص المخزون (من الباك مباشرة)
-  (async () => {
-    const low = document.getElementById("op-low");
-    try {
-      const { data, error } = await sb.rpc("pos_fn_reorder_report");
-      if (error) throw error;
-      const rows = Array.isArray(data) ? data : (data ? [data] : []);
-      if (!rows.length) { low.innerHTML = `<div class="op-muted">مافيش نواقص حاليًا 👌</div>`; setBadge(0); return; }
-      low.innerHTML = rows.slice(0, 60).map(r => {
-        const name = r.name ?? r.product_name ?? r.product ?? "—";
-        const q = r.in_stock ?? r.stock ?? r.qty ?? r.quantity ?? r.remaining ?? "";
-        return `<div class="op-row"><span class="op-name">${esc(name)}</span><span class="op-pill op-low">${esc(q)} متبقّي</span></div>`;
-      }).join("");
-      setBadge(rows.length);
-    } catch (e) {
-      low.innerHTML = `<div class="op-muted">تعذّر التحميل: ${esc(e.message || e.hint || "")}</div>`;
-    }
-  })();
-
-  // بحث سريع (تحميل مرة، فلترة لحظية بتطبيع عربي)
-  let prods = [];
-  try { const { data } = await sb.from("pos_products").select("*").limit(3000); prods = data || []; } catch {}
-  const nameKey = prods[0] ? (["name", "product_name", "title"].find(k => k in prods[0]) || "name") : "name";
-  const q = document.getElementById("op-q"), res = document.getElementById("op-qres");
-  if (q) q.oninput = () => {
-    const t = norm(q.value);
-    if (!t) { res.innerHTML = ""; return; }
-    const hits = prods.filter(p => norm(p[nameKey]).includes(t)).slice(0, 25);
-    res.innerHTML = hits.length
-      ? hits.map(p => `<div class="op-row"><span class="op-name">${esc(p[nameKey])}</span><span class="op-muted">${esc(p.category ?? p.brand ?? "")}</span></div>`).join("")
-      : `<div class="op-muted">مافيش نتيجة</div>`;
-  };
+function findAddButton(near) {
+  const btns = [...document.querySelectorAll("button")].filter(b => b.textContent.trim() === "إضافة");
+  if (!btns.length) return null;
+  if (!near) return btns[0];
+  const r = near.getBoundingClientRect();
+  return btns.sort((a, b) => {
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    return Math.abs(ra.top - r.top) - Math.abs(rb.top - r.top);
+  })[0];
 }
 
-/* ---------- سجل الميزات (أضف صفحة جديدة بسطر واحد) ---------- */
-const ROUTES = [
-  { match: /\/products(\/|\.html|$)/, render: renderProducts },
-  // مثال لاحق: { match: /\/pos(\/|\.html|$)/, render: renderPos },
-];
-
-let mountedFor = null;
-async function route() {
-  const r = ROUTES.find(x => x.match.test(location.pathname));
-  if (!r) { if (host) { host.style.display = "none"; panel.style.display = ""; panel.classList.remove("op-open"); } mountedFor = null; return; }
-  ensureHost();
-  host.style.display = "";
-  if (mountedFor === location.pathname) return;
-  mountedFor = location.pathname;
-  try { await r.render(); } catch (e) { bodyEl.innerHTML = `<div class="op-muted">خطأ: ${esc(e.message || "")}</div>`; }
-}
-
-/* ---------- إقلاع + متابعة تنقّل Next (History API) ---------- */
-function boot() {
-  route();
-  const fire = () => setTimeout(route, 80);
-  for (const m of ["pushState", "replaceState"]) {
-    const orig = history[m];
-    history[m] = function () { const out = orig.apply(this, arguments); fire(); return out; };
+async function loadStock(force) {
+  if (!force && cache && Date.now() - cacheAt < 60000) return cache;
+  const { data, error } = await sb.from("pos_items_scan")
+    .select("product_id,product_name,size,color,barcode,sell_price,status")
+    .eq("status", "in_stock").limit(5000);
+  if (error) throw error;
+  const map = new Map();
+  for (const it of data || []) {
+    let p = map.get(it.product_id);
+    if (!p) { p = { name: it.product_name, price: it.sell_price, n: norm(it.product_name), vars: new Map() }; map.set(it.product_id, p); }
+    const k = it.size + "|" + it.color;
+    let v = p.vars.get(k);
+    if (!v) { v = { size: it.size, color: it.color, barcodes: [] }; p.vars.set(k, v); }
+    v.barcodes.push(it.barcode);
   }
-  window.addEventListener("popstate", fire);
+  cache = [...map.values()]; cacheAt = Date.now();
+  return cache;
 }
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
-else boot();
+
+function buildCard(scanInput) {
+  const card = document.createElement("div");
+  card.className = "opx-card"; card.id = "opx-namesell"; card.setAttribute("dir", "rtl");
+  card.innerHTML = `
+    <button type="button" class="opx-toggle">
+      <span>🔍 بيع بالاسم <span class="opx-sub">— من غير باركود</span></span><span class="opx-sub">▾</span>
+    </button>
+    <div class="opx-body">
+      <input class="opx-inp" placeholder="اكتب اسم المنتج..." autocomplete="off" inputmode="search">
+      <div class="opx-res"><div class="opx-muted">اكتب حرفين على الأقل</div></div>
+      <div class="opx-ok"></div>
+    </div>`;
+  const body = card.querySelector(".opx-body"), inp = card.querySelector(".opx-inp"),
+        res = card.querySelector(".opx-res"), ok = card.querySelector(".opx-ok");
+
+  card.querySelector(".opx-toggle").onclick = async () => {
+    card.classList.toggle("opx-open");
+    if (card.classList.contains("opx-open")) {
+      inp.focus();
+      try { res.innerHTML = '<div class="opx-spin"></div>'; await loadStock(); res.innerHTML = '<div class="opx-muted">اكتب حرفين على الأقل</div>'; }
+      catch (e) { res.innerHTML = `<div class="opx-muted">تعذّر التحميل — اتأكد إنك مسجّل دخول (${esc(e.message || "")})</div>`; }
+    }
+  };
+
+  inp.oninput = () => {
+    const t = norm(inp.value);
+    if (t.length < 2) { res.innerHTML = '<div class="opx-muted">اكتب حرفين على الأقل</div>'; return; }
+    const hits = (cache || []).filter(p => p.n.includes(t)).slice(0, 8);
+    if (!hits.length) { res.innerHTML = '<div class="opx-muted">مافيش منتج بالاسم ده متاح في المخزون</div>'; return; }
+    res.innerHTML = hits.map((p, pi) => `
+      <div class="opx-prod">
+        <div class="opx-pname">${esc(p.name)}<span class="opx-price">${(+p.price || 0).toLocaleString("en-US")} ج.م</span></div>
+        <div class="opx-chips">${[...p.vars.values()].map((v, vi) =>
+          `<button type="button" class="opx-chip ${v.barcodes.length <= 1 ? "opx-lo" : ""}" data-p="${pi}" data-v="${vi}">
+             ${esc(v.size)} · ${esc(v.color)} <span class="opx-q">${v.barcodes.length}</span></button>`).join("")}
+        </div>
+      </div>`).join("");
+    const shown = hits;
+    res.querySelectorAll(".opx-chip").forEach(ch => ch.onclick = () => {
+      const p = shown[+ch.dataset.p], v = [...p.vars.values()][+ch.dataset.v];
+      const bc = v.barcodes.shift();          // استهلاك محلي لتفادي تكرار نفس القطعة
+      ch.querySelector(".opx-q").textContent = v.barcodes.length;
+      if (!v.barcodes.length) ch.disabled = true, ch.style.opacity = .45;
+      const scan = findScanInput(); if (!scan) return;
+      setReactInput(scan, bc);
+      const add = findAddButton(scan);
+      if (add) add.click();
+      else scan.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      ok.style.display = "block";
+      ok.textContent = `✓ اتضافت للفاتورة: ${p.name} — ${v.size} ${v.color}`;
+      setTimeout(() => ok.style.display = "none", 2500);
+    });
+  };
+  return card;
+}
+
+function mountPos() {
+  if (!/\/pos(\/|\.html)?$/.test(location.pathname)) { mounted = null; return; }
+  if (mounted && document.contains(mounted)) return;
+  const scan = findScanInput(); if (!scan) return;           // الصفحة لسه بتحمّل
+  // نركّب بعد كارت المسح: نطلع لأقرب حاوية فيها زرار "إضافة"
+  let host = scan.parentElement, hops = 0;
+  while (host && hops < 6 && !host.querySelector("button")) { host = host.parentElement; hops++; }
+  const anchor = host || scan.parentElement;
+  mounted = buildCard(scan);
+  anchor.insertAdjacentElement("afterend", mounted);
+}
+
+/* ---- إقلاع + صمود ضد إعادة رسم React + تنقّل Next ---- */
+(function boot() {
+  const st = document.createElement("style"); st.textContent = CSS; document.head.appendChild(st);
+  let t; const kick = () => { clearTimeout(t); t = setTimeout(mountPos, 250); };
+  new MutationObserver(kick).observe(document.documentElement, { childList: true, subtree: true });
+  for (const m of ["pushState", "replaceState"]) {
+    const o = history[m]; history[m] = function () { const r = o.apply(this, arguments); kick(); return r; };
+  }
+  addEventListener("popstate", kick);
+  kick();
+})();

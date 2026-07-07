@@ -19,7 +19,7 @@ function readAccessToken() {
       const i = c.indexOf("="); return [c.slice(0, i), c.slice(i + 1)];
     });
     const chunks = parts
-      .filter(([k]) => /^sb-mjetglnmivwphxyzflsz-auth-token(\.\d+)?$/.test(k))
+      .filter(([k]) => /^sb-.*auth-token(\.\d+)?$/.test(k))
       .sort((a, b) => (a[0].split(".")[1] | 0) - (b[0].split(".")[1] | 0))
       .map(([, v]) => v).join("");
     if (!chunks) return null;
@@ -73,15 +73,16 @@ let mounted = null, cache = null, cacheAt = 0;
 function findScanInput() {
   return [...document.querySelectorAll("input")].find(i => (i.placeholder || "").includes("امسح"));
 }
-function findAddButton(near) {
-  const btns = [...document.querySelectorAll("button")].filter(b => b.textContent.trim() === "إضافة");
-  if (!btns.length) return null;
-  if (!near) return btns[0];
-  const r = near.getBoundingClientRect();
-  return btns.sort((a, b) => {
-    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
-    return Math.abs(ra.top - r.top) - Math.abs(rb.top - r.top);
-  })[0];
+// زرار "إضافة" الخاص بخانة المسح فقط — بندور جوّه أقرب حاوية للـ input (مش أي زرار في الصفحة)
+function findAddButtonNear(scan) {
+  let n = scan, hops = 0;
+  while (n && hops < 5) {
+    const b = [...(n.querySelectorAll ? n.querySelectorAll("button") : [])]
+      .find(x => x.textContent.trim() === "إضافة");
+    if (b) return b;
+    n = n.parentElement; hops++;
+  }
+  return null;
 }
 
 async function loadStock(force) {
@@ -148,9 +149,13 @@ function buildCard(scanInput) {
       if (!v.barcodes.length) ch.disabled = true, ch.style.opacity = .45;
       const scan = findScanInput(); if (!scan) return;
       setReactInput(scan, bc);
-      const add = findAddButton(scan);
-      if (add) add.click();
-      else scan.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      scan.focus();
+      setTimeout(() => {                       // مهلة صغيرة عشان React يقرا القيمة الجديدة
+        ["keydown", "keypress", "keyup"].forEach(type =>
+          scan.dispatchEvent(new KeyboardEvent(type, { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true })));
+        const add = findAddButtonNear(scan);   // احتياطي مقيّد بحاوية خانة المسح فقط
+        if (add) add.click();
+      }, 45);
       ok.style.display = "block";
       ok.textContent = `✓ اتضافت للفاتورة: ${p.name} — ${v.size} ${v.color}`;
       setTimeout(() => ok.style.display = "none", 2500);

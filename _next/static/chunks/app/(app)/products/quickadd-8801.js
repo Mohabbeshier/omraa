@@ -32,7 +32,7 @@ const BASE_COLORS = [{
   hex: "#c0c0c0"
 }];
 const BASE_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43"];
-function QuickAddModal(props) {
+function QuickAddModal(props = {}) {
   const {
     open,
     onClose,
@@ -243,9 +243,9 @@ function QuickAddModal(props) {
     className: "font-bold text-slate-900 flex items-center gap-2"
   }, "⚡ إضافة سريعة"), /*#__PURE__*/n.createElement("div", {
     className: "flex gap-1.5 mt-1.5"
-  }, [1, 2, 3].map(n => /*#__PURE__*/n.createElement("span", {
-    key: n,
-    className: "h-1.5 rounded-full transition-all " + (n === step ? "w-8 bg-indigo-600" : n < step ? "w-4 bg-indigo-300" : "w-4 bg-slate-200")
+  }, [1, 2, 3].map(stepN => /*#__PURE__*/n.createElement("span", {
+    key: stepN,
+    className: "h-1.5 rounded-full transition-all " + (stepN === step ? "w-8 bg-indigo-600" : stepN < step ? "w-4 bg-indigo-300" : "w-4 bg-slate-200")
   })))), /*#__PURE__*/n.createElement("button", {
     onClick: onClose,
     className: "text-slate-400 hover:text-slate-600 p-1"

@@ -1,7 +1,7 @@
 /* Omraa POS service worker — network-first, self-healing cache.
    يمنع نهائيًا مشكلة الكاش القديم: كل طلب بيروح للشبكة الأول (no-store)،
    والكاش بيُستخدم فقط لو النت فصل (offline fallback). */
-const CACHE = 'omraa-net-first-v1';
+const CACHE = 'omraa-net-first-v2';
 
 self.addEventListener('install', (e) => {
   // فعّل النسخة الجديدة فورًا من غير انتظار

@@ -145,4 +145,39 @@ fi
 echo "  ✅ لا يوجد تعديل معزول عن الملف النظيف (RSC module الفعلي)"
 
 echo ""
+echo "🔍 فحص 5: تطابق السطح الثالث — كل route له .txt لازم يشاور على نفس"
+echo "   chunk الصفحة المذكور في الـ.html المقابل، وكل مرجع في أي .txt موجود فعلًا."
+echo "   (التنقل الداخلي client-nav يحمّل الـ.txt وليس الـ.html — انحرافهما يعني"
+echo "    كود قديم/ChunkLoadError عند التنقل بين الصفحات رغم سلامة التحميل المباشر)"
+txt_issue=0
+for t in *.txt; do
+    [ -f "$t" ] || continue
+    route="${t%.txt}"
+    h="$route.html"
+    # 5أ: كل مرجع chunk في الـtxt موجود على القرص
+    for ref in $(grep -o 'static/chunks/[^"\\[:space:]]*\.js' "$t" | sort -u); do
+        if [ ! -f "_next/$ref" ]; then
+            echo "  ❌ $t يشاور على ملف غير موجود: _next/$ref"
+            txt_issue=1
+        fi
+    done
+    # 5ب: chunk الصفحة في txt = chunk الصفحة في html
+    if [ -f "$h" ]; then
+        t_page=$(grep -o "app/([^\"\\\\]*)/$route/page-[^\"\\\\]*\.js" "$t" 2>/dev/null | grep -o 'page-[^"\\]*\.js' | sort -u | head -1)
+        h_page=$(grep -o "app/([^\"]*)/$route/page-[^\"\\\\]*\.js" "$h" 2>/dev/null | grep -o 'page-[^"\\]*\.js' | sort -u | head -1)
+        if [ -n "$t_page" ] && [ -n "$h_page" ] && [ "$t_page" != "$h_page" ]; then
+            echo "  ❌ انحراف $route: html=$h_page لكن txt=$t_page — حدّث الـtxt بنفس الاسم"
+            txt_issue=1
+        fi
+    fi
+done
+if [ "$txt_issue" -eq 1 ]; then
+    echo ""
+    echo "❌ توقف! السطح الثالث (.txt) منحرف عن الـhtml — أي rename لازم يحدّث الثلاثة:"
+    echo "   ① <script src> في الـhtml  ② الـRSC payload في نفس الـhtml  ③ ملف <route>.txt"
+    exit 1
+fi
+echo "  ✅ كل ملفات .txt متطابقة مع html ومراجعها موجودة"
+
+echo ""
 echo "✅ كل الفحوصات نجحت — آمن للـ push"

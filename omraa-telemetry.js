@@ -32,3 +32,42 @@
   window.addEventListener("unhandledrejection",function(e){try{window.__omraaLog("global.unhandledrejection",e.reason,{});}catch(_){}});
   window.addEventListener("online",flush);try{flush();}catch(_){}
 })();
+
+/* === العين الشاملة (v2): مراقب استجابات Supabase + بانر انتهاء الجلسة ===
+   يلقط أي RPC فاشل من أي صفحة تلقائيًا (تغطية 100% بلا لمس chunks)،
+   ويكتشف الجلسة المنتهية (فشل auth متكرر) فيعرض بانر تسجيل دخول واضح. */
+(function(){try{
+  if(window.__omraaEye)return;window.__omraaEye=1;
+  var SB="https://mjetglnmivwphxyzflsz.supabase.co",SEEN={},A401=0,BAN=0;
+  function once(k){if(SEEN[k])return!1;SEEN[k]=1;return!0;}
+  function banner(){try{
+    if(BAN||A401<2)return;BAN=1;
+    if(location.pathname.indexOf("/login")>=0)return;
+    var d=document.createElement("div");d.setAttribute("dir","rtl");
+    d.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#b45309;color:#fff;padding:10px 14px;font:14px/1.5 system-ui,-apple-system,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35)";
+    d.textContent="⚠️ انتهت الجلسة — اضغط هنا لتسجيل الدخول من جديد";
+    d.onclick=function(){location.href="/omraa/login";};
+    (document.body||document.documentElement).appendChild(d);
+    window.__omraaLog&&window.__omraaLog("session.expired.banner",{message:"auth failures x"+A401},{severity:"warn"});
+  }catch(_){}}
+  var OF=window.fetch;
+  window.fetch=function(u,o){
+    var url="";try{url=String((u&&u.url)||u);}catch(_){}
+    var p=OF.apply(this,arguments);
+    try{if(url.indexOf(SB)===0){p.then(function(r){try{
+      if(!r||r.ok)return;
+      var st=r.status;
+      if(url.indexOf("/auth/v1/")>=0){if(st===400||st===401||st===403){A401++;banner();}return;}
+      if(st===401){A401++;banner();}
+      var fn=(url.split("/rpc/")[1]||url.slice(-60)).split("?")[0];
+      var k="rpc:"+fn+":"+st;if(!once(k))return;
+      var sev=st>=500?"error":"warn";
+      r.clone().text().then(function(b){
+        window.__omraaLog&&window.__omraaLog("rpc."+fn,{message:"HTTP "+st},{severity:sev,body:String(b).slice(0,250)});
+      }).catch(function(){
+        window.__omraaLog&&window.__omraaLog("rpc."+fn,{message:"HTTP "+st},{severity:sev});
+      });
+    }catch(_){}});}}catch(_){}
+    return p;
+  };
+}catch(_){}})();

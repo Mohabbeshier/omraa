@@ -26,8 +26,14 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith((async () => {
     try {
-      // network-first مع تجاوز كامل لكاش HTTP
-      const fresh = await fetch(req, { cache: 'no-store' });
+      // network-first مع تجاوز كامل لكاش HTTP + مهلة 12ث ضد الشبكة المتجمدة
+      // (طلب معلّق بلا استقرار = نفس فئة التعليق الصامت — نقع على الكاش بدل الانتظار الأبدي)
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 12000);
+      let fresh;
+      try {
+        fresh = await fetch(req, { cache: 'no-store', signal: ctrl.signal });
+      } finally { clearTimeout(timer); }
       if (fresh && fresh.status === 200 && fresh.type === 'basic') {
         try { const c = await caches.open(CACHE); await c.put(req, fresh.clone()); } catch (_) {}
       }

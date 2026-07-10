@@ -13,10 +13,11 @@
   function writeQ(q){try{localStorage.setItem(QKEY,JSON.stringify(q.slice(-MAXQ)));}catch(_){}}
   function enqueue(rec){var q=readQ();q.push(rec);writeQ(q);}
   function post(rec,onFail){var tk=token();if(!tk){onFail&&onFail(rec);return;}
-    try{fetch(RPC,{method:"POST",headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+tk},
+    var ac=null,tm=null;try{ac=new AbortController();tm=setTimeout(function(){try{ac.abort();}catch(_){}},10000);}catch(_){}
+    try{fetch(RPC,{signal:ac&&ac.signal,method:"POST",headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+tk},
       body:JSON.stringify({p_context:rec.context,p_message:rec.message,p_detail:rec.detail||{},p_severity:rec.severity||"error",
         p_app_version:rec.app_version||null,p_ua:(navigator.userAgent||"").slice(0,400),p_online:!!navigator.onLine}),keepalive:true})
-      .then(function(r){if(!r.ok)onFail&&onFail(rec);}).catch(function(){onFail&&onFail(rec);});
+      .then(function(r){tm&&clearTimeout(tm);if(!r.ok)onFail&&onFail(rec);}).catch(function(){tm&&clearTimeout(tm);onFail&&onFail(rec);});
     }catch(_){onFail&&onFail(rec);}}
   function flush(){var q=readQ();if(!q.length)return;writeQ([]);q.forEach(function(rec){post(rec,enqueue);});}
   function sanitize(x){if(!x||typeof x!=="object")return{};var o={},drop=/pass|token|secret|cost|price|جمله|تكلف/i;

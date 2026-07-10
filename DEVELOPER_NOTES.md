@@ -591,3 +591,11 @@ webpack يسجّل بمعرّف الـchunk الداخلي فالتحميل ال
 **Backlog تليمتري**: pos/returns/backup/suppliers/customers كاتشاتها محلية (toast) بلا تسجيل
 عن بُعد — إضافة `__omraaLog` لكاتشات مسارات الفلوس تتم في جلسة مخصصة بحذر، ليست عاجلة
 (طبقة auth.watchdog العالمية تغطي فئة التعليق).
+
+## 2026-07-10 — بيع بالاسم من شاشة POS (v5)
+- خانة المسح أصبحت مزدوجة: أرقام = باركود (كما هي حرفيًا)، حروف عربي/إنجليزي + Enter = بحث بالاسم/البراند/SKU.
+- RPCs جديدة (SECURITY DEFINER، authenticated فقط، مقفولة عن anon):
+  - `pos_fn_pos_search(p_q)` → منتجات + variants {size,color,n} للمتاح فقط، حد 8.
+  - `pos_fn_pick_item(p_product,p_size,p_color,p_exclude)` → نفس envelope الـ scan_item حرفيًا (FIFO + استبعاد قطع السلة).
+- اللوحة: chips مقاس·لون(عدد)، الضغط يضيف للسلة بنفس مسار السكان (dup-guard، تحذير آخر قطعة، checkMargin)، العدّاد ينقص محليًا بعد كل إضافة.
+- chunk: page-f8625146216a06a6-v5.js (+shim v4cachefix)، الأسطح الثلاثة محدَّثة.

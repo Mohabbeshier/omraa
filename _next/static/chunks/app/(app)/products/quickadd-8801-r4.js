@@ -68,6 +68,7 @@ function QuickAddModal(props) {
         setSellPrice(cloneData.sell_price != null ? String(cloneData.sell_price) : "");
         setCostPrice("");
         setCategory(cloneData.category || "عام");
+        setSku(cloneData.base_sku || "");
       } else {
         setName("");
         setBrand("");

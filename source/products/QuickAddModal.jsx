@@ -15,6 +15,35 @@ const BASE_COLORS = [
 
 const BASE_SIZES = ["36", "37", "38", "39", "40", "41", "42", "43"];
 
+// ---- مولّد أسماء موديلات (client-side بالكامل، بدون أي API خارجي) ----
+const NAME_TYPES = ["سليبر", "سواريه", "حذاء", "هيلز", "صندل", "شبشب", "بلارينا", "سابوه", "كلاسيك"];
+const NAME_MATERIALS = ["بدون", "جلد طبيعي", "دانتيل", "شفاف", "قماش", "جلد لامع", "مخمل", "ستان", "شعر", "كريستال"];
+const NAME_HEELS = ["بدون", "فلات", "3 سم", "5 سم", "7 سم", "كتلة"];
+
+// توحيد الاسم العربي للمقارنة: إزالة التشكيل والتطويل، توحيد أشكال الألف/الياء،
+// وتقليص المسافات — نفس منطق shop.norm_ar المستخدم في قاعدة البيانات.
+function normalizeAr(str) {
+  return (str || "")
+    .replace(/[\u064B-\u0652\u0670\u0640]/g, "") // تشكيل + تطويل
+    .replace(/[إأآا]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function buildSuggestedName(type, material, heel, existingNormSet) {
+  const parts = [type, material !== "بدون" ? material : null, heel !== "بدون" ? heel : null].filter(Boolean);
+  const base = parts.join(" ").trim();
+  if (!base) return "";
+  if (!existingNormSet.has(normalizeAr(base))) return base;
+  for (let n = 2; n <= 50; n++) {
+    const candidate = base + " " + n;
+    if (!existingNormSet.has(normalizeAr(candidate))) return candidate;
+  }
+  return base;
+}
+
 export default function QuickAddModal(props) {
   const { open, onClose, onSaved, supabase, cloneData } = props;
 
@@ -36,6 +65,12 @@ export default function QuickAddModal(props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [lastCreated, setLastCreated] = useState(null);
+  const [existingNames, setExistingNames] = useState([]);
+  const [dupConfirmed, setDupConfirmed] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
+  const [nameType, setNameType] = useState(NAME_TYPES[0]);
+  const [nameMaterial, setNameMaterial] = useState("بدون");
+  const [nameHeel, setNameHeel] = useState("بدون");
 
   useEffect(() => {
     if (open) {
@@ -60,6 +95,12 @@ export default function QuickAddModal(props) {
       setMatrix({});
       setError("");
       setLastCreated(null);
+      setExistingNames([]);
+      setDupConfirmed(false);
+      setShowAssistant(false);
+      setNameType(NAME_TYPES[0]);
+      setNameMaterial("بدون");
+      setNameHeel("بدون");
       // جلب بيانات ذاتية: الفئات المتاحة + الألوان/المقاسات المستخدمة فعلياً في المتجر
       supabase
         .from("pos_app_settings")
@@ -77,10 +118,23 @@ export default function QuickAddModal(props) {
           setKnownSizes(data.sizes || []);
         }
       });
+      // أسماء المنتجات الحالية — تُستخدم لكشف التكرار ولتوليد اقتراحات فريدة،
+      // بالكامل client-side، بدون أي استدعاء خارجي أو تكلفة إضافية.
+      supabase
+        .from("pos_products")
+        .select("name")
+        .then(({ data }) => {
+          if (data) setExistingNames(data.map((r) => r.name).filter(Boolean));
+        });
     }
   }, [open, supabase, cloneData]);
 
   if (!open) return null;
+
+  const existingNormSet = new Set(existingNames.map(normalizeAr));
+  const normalizedName = normalizeAr(name);
+  const duplicateNames = normalizedName ? existingNames.filter((n) => normalizeAr(n) === normalizedName) : [];
+  const suggestedName = buildSuggestedName(nameType, nameMaterial, nameHeel, existingNormSet);
 
   const colorPool = [...new Set([...BASE_COLORS.map((c) => c.name), ...(knownColors || [])])];
   const sizePool = [...new Set([...BASE_SIZES, ...(knownSizes || [])])].sort((a, b) => {
@@ -94,6 +148,13 @@ export default function QuickAddModal(props) {
     return f ? f.hex : "#9ca3af";
   }
 
+  function setNameAndClearDup(v) {
+    setName(v);
+    setDupConfirmed(false);
+  }
+  function useSuggestedName() {
+    if (suggestedName) setNameAndClearDup(suggestedName);
+  }
   function toggleColor(c) {
     setSelectedColors((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
   }
@@ -153,6 +214,12 @@ export default function QuickAddModal(props) {
       setStep(2);
       return;
     }
+    if (duplicateNames.length > 0 && !dupConfirmed) {
+      setDupConfirmed(true);
+      setError('فيه منتج بنفس الاسم "' + name.trim() + '" بالظبط بالفعل — اضغط "حفظ المنتج" تاني للتأكيد، أو غيّر الاسم');
+      setStep(1);
+      return;
+    }
     setSaving(true);
     try {
       const variants = [];
@@ -169,7 +236,10 @@ export default function QuickAddModal(props) {
         p_cost: cost > 0 ? cost : null,
         p_brand: brand.trim() || null,
         p_sku: sku.trim() || null,
-        p_variants: JSON.stringify(variants),
+        // ⚠️ لازم array حقيقي وليس نص JSON — pos.fn_create_product_full بيستخدم
+        // jsonb_array_elements(p_variants) واللي بيتوقع jsonb array فعلي، مش
+        // scalar string. JSON.stringify هنا كان يكسر إنشاء أي منتج جديد.
+        p_variants: variants,
       });
       if (err) {
         setError(err.message);
@@ -196,6 +266,7 @@ export default function QuickAddModal(props) {
     setMatrix({});
     setLastCreated(null);
     setError("");
+    setDupConfirmed(false);
   }
 
   function nextStep() {
@@ -218,12 +289,12 @@ export default function QuickAddModal(props) {
           <div>
             <h2 className="font-bold text-slate-900 flex items-center gap-2">⚡ إضافة سريعة</h2>
             <div className="flex gap-1.5 mt-1.5">
-              {[1, 2, 3].map((n) => (
+              {[1, 2, 3].map((stepN) => (
                 <span
-                  key={n}
+                  key={stepN}
                   className={
                     "h-1.5 rounded-full transition-all " +
-                    (n === step ? "w-8 bg-indigo-600" : n < step ? "w-4 bg-indigo-300" : "w-4 bg-slate-200")
+                    (stepN === step ? "w-8 bg-indigo-600" : stepN < step ? "w-4 bg-indigo-300" : "w-4 bg-slate-200")
                   }
                 />
               ))}
@@ -263,14 +334,78 @@ export default function QuickAddModal(props) {
               {step === 1 && (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs text-slate-500 mb-1 block">اسم المنتج *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-slate-500 block">اسم المنتج *</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAssistant((v) => !v)}
+                        className="text-xs text-indigo-600 hover:text-indigo-700"
+                      >
+                        🧠 {showAssistant ? "إخفاء المساعد" : "مساعد اسم الموديل"}
+                      </button>
+                    </div>
                     <input
                       autoFocus
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) => setNameAndClearDup(e.target.value)}
                       className="w-full text-sm"
                       placeholder="مثال: حذاء طبي مخيط"
                     />
+                    {duplicateNames.length > 0 && (
+                      <div className="mt-1.5 text-xs bg-amber-50 border border-amber-200 text-amber-700 rounded-lg p-2">
+                        ⚠️ فيه {duplicateNames.length} منتج بنفس الاسم بالظبط بالفعل. لو مش مقصود، غيّر الاسم أو استخدم المساعد تحت.
+                      </div>
+                    )}
+                    {showAssistant && (
+                      <div className="mt-2 bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] text-slate-400 mb-0.5 block">النوع</label>
+                            <select value={nameType} onChange={(e) => setNameType(e.target.value)} className="w-full text-xs py-1">
+                              {NAME_TYPES.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400 mb-0.5 block">الخامة</label>
+                            <select value={nameMaterial} onChange={(e) => setNameMaterial(e.target.value)} className="w-full text-xs py-1">
+                              {NAME_MATERIALS.map((m) => (
+                                <option key={m} value={m}>
+                                  {m}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-slate-400 mb-0.5 block">الكعب</label>
+                            <select value={nameHeel} onChange={(e) => setNameHeel(e.target.value)} className="w-full text-xs py-1">
+                              {NAME_HEELS.map((h) => (
+                                <option key={h} value={h}>
+                                  {h}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-1">
+                          <span className="text-xs text-slate-600 font-medium truncate">{suggestedName || "—"}</span>
+                          <button
+                            type="button"
+                            onClick={useSuggestedName}
+                            disabled={!suggestedName}
+                            className="text-xs px-3 py-1.5 bg-indigo-600 text-white rounded-lg disabled:opacity-40 shrink-0"
+                          >
+                            استخدام هذا الاسم
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          الاقتراح يتولّد تلقائيًا من (النوع + الخامة + الكعب)، ولو الاسم مكرر بيضيف رقم تسلسلي تلقائيًا — كله محليًا بدون أي تكلفة.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>

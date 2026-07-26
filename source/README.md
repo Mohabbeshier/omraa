@@ -80,3 +80,27 @@ hook جديد لم يُذكر) — لا تخمّن الحل، افحص الفر�
 التأكد من نشره بنجاح** — لا تتركه في `/home/claude` المؤقت وحده. هذا هو الدرس
 المباشر من اكتشاف أن `QuickAddModal.jsx` و `CollectionsModal.jsx` لم يكونا محفوظين
 في الـ repo رغم أنهما منشوران وحيويان لصفحة المنتجات.
+
+## ⚠️ درسان إضافيان (اكتُشفا أثناء بناء مولّد أسماء الموديلات)
+
+**١. `export default function X(...)` لازم يتشال يدويًا بعد Babel.**
+خطوة "احذف السطر الأول" في القسم السابق بتشيل الـ `import` بس. لو الملف
+المصدري بيستخدم `export default function ComponentName`، Babel (بمفرده، من غير
+`@babel/plugin-transform-modules-commonjs`) **مش بيشيل كلمة `export default`** —
+لازم `sed -i 's/^export default function ComponentName/function ComponentName/'`
+كخطوة زيادة، وإلا الملف النهائي هيدّي `SyntaxError: Unexpected token 'export'`
+في المتصفح (chunk بيتحمّل بـ `<script>` عادي، مش module).
+
+**٢. باج مكتشف وتم إصلاحه: `p_variants: JSON.stringify(variants)` غلط.**
+`pos.fn_create_product_full` بيستخدم `jsonb_array_elements(p_variants)` جوّاها،
+وده بيتوقع **jsonb array حقيقي**. لو بعتنا `JSON.stringify(variants)` (نص)،
+Postgres هيستقبله كـ jsonb **scalar string** مش array، و`jsonb_array_elements`
+هيرمي error فورًا — يعني أي منتج جديد من QuickAddModal كان هيفشل بالكامل لو
+الملف اتبنى من `source/QuickAddModal.jsx` القديم من غير مراجعة. الصح: تمرير
+`variants` مباشرة (array عادي)، supabase-js بيسلسله صح لوحده.
+
+**القاعدة العملية:** أي إعادة بناء لملف من `source/` **لازم** يتعمل عليها
+`diff` كامل مع النسخة المنشورة حاليًا (نزّلها بـ raw.githubusercontent.com)
+قبل النشر — مش مجرد `node --check`. الفرق لازم يتفهم سطر سطر: كل حذف لازم
+يتفسّر (كود ميت / تعديل مقصود)، وكل إضافة تتأكد إنها الميزة الجديدة بس.
+هيك بالظبط اتكشف الباجين دول.

@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>صور المنتجات — الأمراء</title>
+<link rel="icon" href="icon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --card:#fff; --brand:#4f46e5; --accent:#e8490f; --ok:#16a34a; --danger:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:Alexandria,system-ui,sans-serif;font-size:14px;line-height:1.7}
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 16px 100px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+       padding:16px 0;border-bottom:1px solid var(--line);margin-bottom:22px;flex-wrap:wrap}
+  h1{font-size:20px;margin:0;font-weight:700}
+  h2{font-size:16px;margin:0 0 4px;font-weight:700}
+  .sub{color:var(--muted);font-size:12.5px;margin:0}
+  a.back{color:var(--brand);font-size:13px;text-decoration:none}
+  a.back:hover{text-decoration:underline}
+
+  .search-row{display:flex;gap:8px;margin-bottom:16px}
+  .search-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:11px 14px;
+       font:inherit;font-size:14px;background:#fff;color:var(--ink)}
+  .search-row input:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent}
+
+  /* Products needing photos surface first — that queue is the whole point
+     of this page, so it should never require scrolling to find. */
+  .queue-banner{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;
+       padding:12px 15px;margin-bottom:16px;font-size:13px;color:#9a3412}
+  .queue-banner strong{font-weight:700}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+       cursor:pointer;transition:border-color .15s,transform .15s}
+  .pcard:hover{border-color:var(--brand)}
+  .pcard:active{transform:scale(.98)}
+  .pcard .thumb{aspect-ratio:1/1;background:var(--bg);display:flex;align-items:center;
+       justify-content:center;position:relative;overflow:hidden}
+  .pcard .thumb img{width:100%;height:100%;object-fit:cover}
+  .pcard .thumb .ph-count{position:absolute;bottom:6px;inset-inline-end:6px;background:rgba(15,23,42,.8);
+       color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:99px}
+  .pcard .thumb .needs{position:absolute;top:6px;inset-inline-start:6px;background:var(--accent);
+       color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px}
+  .pcard .no-img{color:var(--muted);font-size:11px;text-align:center;padding:0 10px}
+  .pcard .body{padding:9px 10px}
+  .pcard .name{font-size:12.5px;font-weight:600;margin:0 0 3px;
+       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pcard .meta{font-size:11px;color:var(--muted)}
+
+  /* editor */
+  .veil{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:80;display:none}
+  .veil.on{display:block}
+  .sheet{position:fixed;inset-inline:0;bottom:0;z-index:81;background:#fff;
+       border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;
+       transform:translateY(100%);transition:transform .25s ease;
+       box-shadow:0 -20px 50px -20px rgba(0,0,0,.4)}
+  .sheet.on{transform:translateY(0)}
+  .sheet-inner{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .sheet-close{background:none;border:0;font-size:20px;color:var(--muted);padding:4px 8px;cursor:pointer}
+
+  .shot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .shot{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;
+       border:1.5px solid var(--line);background:var(--bg)}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block}
+  .shot .color-tag{position:absolute;bottom:0;inset-inline:0;background:rgba(15,23,42,.75);
+       color:#fff;font-size:10px;text-align:center;padding:3px 4px}
+  .shot .rm{position:absolute;top:4px;inset-inline-end:4px;width:22px;height:22px;border-radius:99px;
+       background:rgba(15,23,42,.75);color:#fff;border:0;font-size:13px;cursor:pointer;
+       display:flex;align-items:center;justify-content:center}
+  .shot.uploading{display:flex;align-items:center;justify-content:center}
+  .shot .spin{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--brand);
+       border-radius:99px;animation:sp .7s linear infinite}
+  .add-shot{aspect-ratio:1/1;border-radius:10px;border:1.5px dashed var(--line);
+       background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
+       gap:4px;color:var(--brand);font-size:11px;font-weight:600;cursor:pointer}
+  .add-shot svg{width:24px;height:24px}
+  .add-shot:active{background:#eef2ff}
+
+  .color-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+  .color-chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;
+       font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+  .color-chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .tip{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;
+       padding:10px 12px;font-size:12px;margin-bottom:16px;line-height:1.7}
+
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99;
+        background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;
+        display:none;box-shadow:0 12px 30px -12px rgba(0,0,0,.5);max-width:90vw}
+  #toast.err{background:var(--danger)}
+  #toast.ok{background:var(--ok)}
+  .center{text-align:center;padding:60px 20px}
+  .spin-big{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);
+        border-radius:99px;animation:sp .7s linear infinite;margin:0 auto 12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>صور المنتجات</h1>
+      <p class="sub">صوّري أو ارفعي — تظهر على الموقع فورًا</p>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="back" href="merchandising.html">العروض والمجموعات ←</a><a class="back" href="products.html">→ رجوع للمنتجات</a></div>
+  </header>
+  <div id="app"><div class="center"><div class="spin-big"></div><p class="muted">جارٍ التحميل…</p></div></div>
+</div>
+<div id="toast"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const SUPABASE_URL = "https://mjetglnmivwphxyzflsz.supabase.co";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
+const BUCKET = "product-images";
+
+/* Same session-reuse pattern as merchandising.html — the owner is already
+   signed in to the POS, and this page rides that session rather than asking
+   again. */
+function accessToken() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (/^sb-.*-auth-token$/.test(k)) {
+        const v = JSON.parse(localStorage.getItem(k));
+        if (v && v.access_token) return v.access_token;
+      }
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function rpc(fn, args) {
+  const tok = accessToken();
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: ANON_KEY, Authorization: `Bearer ${tok || ANON_KEY}` },
+    body: JSON.stringify(args || {}),
+  });
+  const txt = await res.text();
+  let data = null; try { data = txt ? JSON.parse(txt) : null; } catch (e) { data = txt; }
+  if (!res.ok) throw new Error((data && (data.message || data.hint)) || `HTTP ${res.status}`);
+  return data;
+}
+
+/* Direct upload to Storage. A Cairo mobile connection makes a raw 4-8MB phone
+   photo a real cost in time and data — every shot is downscaled and
+   re-encoded to JPEG in the browser first, which is the single biggest lever
+   on how fast this page feels to use. */
+function compressImage(file, maxDim = 1600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const scale = maxDim / Math.max(width, height);
+        width = Math.round(width * scale); height = Math.round(height * scale);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("compress failed")), "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+    img.src = url;
+  });
+}
+
+async function uploadToStorage(productId, blob) {
+  const tok = accessToken();
+  const path = `${productId}/${crypto.randomUUID()}.jpg`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "image/jpeg", apikey: ANON_KEY,
+      Authorization: `Bearer ${tok || ANON_KEY}`, "x-upsert": "false",
+    },
+    body: blob,
+  });
+  if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(`رفع الصورة فشل: ${res.status} ${t.slice(0,120)}`); }
+  return path;
+}
+
+function toast(msg, kind) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.className = kind || "";
+  el.style.display = "block";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.style.display = "none"; }, 3200);
+}
+
+function ProductGrid({ products, onOpen, filter }) {
+  const q = filter.trim().toLowerCase();
+  const list = products.filter((p) => !q || p.name.toLowerCase().includes(q));
+  const needing = products.filter((p) => (p.photo_count || 0) === 0).length;
+
+  return (
+    <>
+      {needing > 0 && (
+        <div className="queue-banner">
+          <strong>{needing}</strong> موديل لسه محتاج صور — دول أهم حاجة تتصوّر النهاردة.
+        </div>
+      )}
+      <div className="grid">
+        {list.map((p) => (
+          <div className="pcard" key={p.id} onClick={() => onOpen(p)}>
+            <div className="thumb">
+              {p.photo_count === 0 && <span className="needs">محتاج صور</span>}
+              {p.cover ? <img src={p.cover} alt="" loading="lazy" /> : <span className="no-img">بلا صورة</span>}
+              {p.photo_count > 0 && <span className="ph-count">{p.photo_count} صورة</span>}
+            </div>
+            <div className="body">
+              <p className="name">{p.name}</p>
+              <p className="meta">{p.category || "—"}</p>
+            </div>
+          </div>
+        ))}
+        {list.length === 0 && <div className="empty" style={{gridColumn:"1/-1"}}>لا يوجد منتج بهذا الاسم</div>}
+      </div>
+    </>
+  );
+}
+
+/* Colours offered here are only the ones this specific product actually
+   stocks (from variant_barcodes), never a generic list — tagging a shot with
+   a colour the product doesn't come in would be worse than not tagging it. */
+function Editor({ product, colors, onClose, onChanged }) {
+  const [images, setImages] = useState(product.images || []);
+  const [activeColor, setActiveColor] = useState(colors[0] || null);
+  const [busy, setBusy] = useState(new Set());
+  const fileRef = useRef(null);
+
+  const pickFiles = () => fileRef.current && fileRef.current.click();
+
+  const handleFiles = useCallback(async (fileList) => {
+    const files = Array.from(fileList || []);
+    for (const file of files) {
+      const localId = crypto.randomUUID();
+      setBusy((b) => new Set(b).add(localId));
+      try {
+        const blob = await compressImage(file);
+        const path = await uploadToStorage(product.id, blob);
+        const res = await rpc("shop_fn_attach_product_image", {
+          p_product_id: product.id, p_path: path, p_color: activeColor || null,
+        });
+        if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
+        setImages((imgs) => [...imgs, { id: res.id, url: res.url, color: activeColor }]);
+        onChanged();
+      } catch (e) {
+        toast(e.message || "حصل خطأ أثناء الرفع", "err");
+      } finally {
+        setBusy((b) => { const n = new Set(b); n.delete(localId); return n; });
+      }
+    }
+  }, [product.id, activeColor, onChanged]);
+
+  const removeImage = async (img) => {
+    if (!confirm("تأكيد حذف الصورة؟")) return;
+    try {
+      const res = await rpc("shop_fn_remove_product_image", { p_image_id: img.id });
+      if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحذف");
+      setImages((imgs) => imgs.filter((i) => i.id !== img.id));
+      onChanged();
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  return (
+    <>
+      <div className="veil on" onClick={onClose} />
+      <div className="sheet on">
+        <div className="sheet-inner">
+          <div className="sheet-head">
+            <div><h2>{product.name}</h2><p className="sub">{product.category}</p></div>
+            <button className="sheet-close" onClick={onClose}>✕</button>
+          </div>
+
+          {colors.length > 0 && (
+            <>
+              <label>اللون اللي بتصوّريه دلوقتي</label>
+              <div className="color-row">
+                {colors.map((c) => (
+                  <button key={c} className={`color-chip${activeColor === c ? " on" : ""}`}
+                          onClick={() => setActiveColor(c)}>{c}</button>
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="tip">
+            حيطة بيضا أو ورقة كانسون، ضوء الشباك مش الفلاش، وزاوية ٣ أرباع. ٤ صور كفاية لكل لون.
+          </div>
+
+          <div className="shot-grid">
+            {images.map((img) => (
+              <div className="shot" key={img.id}>
+                <img src={img.url} alt="" />
+                {img.color && <span className="color-tag">{img.color}</span>}
+                <button className="rm" onClick={() => removeImage(img)}>✕</button>
+              </div>
+            ))}
+            {[...busy].map((id) => (
+              <div className="shot uploading" key={id}><div className="spin" /></div>
+            ))}
+            <div className="add-shot" onClick={pickFiles}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 7h3l2-2h6l2 2h3v13H4z" strokeLinejoin="round" />
+                <circle cx="12" cy="13" r="3.4" />
+              </svg>
+              صوّري / ارفعي
+            </div>
+          </div>
+
+          <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
+                 style={{ display: "none" }} onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+
+          <button className="btn-primary" style={{ width: "100%" }} onClick={onClose}>تم</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function App() {
+  const [products, setProducts] = useState(null);
+  const [filter, setFilter] = useState("");
+  const [open, setOpen] = useState(null);   // { id, name, category, images }
+  const [openColors, setOpenColors] = useState([]);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      // shop_fn_catalog already carries image + colour data per product and
+      // needs no separate admin listing endpoint.
+      const res = await rpc("shop_fn_catalog", { p_limit: 60, p_sort: "newest" });
+      const items = (res && res.items) || [];
+      setProducts(items.map((p) => ({
+        id: p.id, name: p.name, category: p.category,
+        cover: p.image_url, photo_count: (p.images || []).length,
+        colors: p.colors || [],
+      })));
+    } catch (e) { setError(e.message || "تعذّر تحميل المنتجات"); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openProduct = async (p) => {
+    try {
+      const imgs = await rpc("shop_fn_product_images", { p_product_id: p.id });
+      setOpen({ id: p.id, name: p.name, category: p.category, images: imgs || [] });
+      setOpenColors(p.colors || []);
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  if (error) return <div className="center"><p style={{color:"var(--danger)"}}>{error}</p></div>;
+  if (!products) return <div className="center"><div className="spin-big" /><p className="muted">جارٍ التحميل…</p></div>;
+
+  return (
+    <>
+      <div className="search-row">
+        <input placeholder="دوّري على موديل…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      </div>
+      <ProductGrid products={products} filter={filter} onOpen={openProduct} />
+      {open && (
+        <Editor
+          product={open} colors={openColors}
+          onClose={() => { setOpen(null); load(); }}
+          onChanged={load}
+        />
+      )}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+</script>
+</body>
+</html>

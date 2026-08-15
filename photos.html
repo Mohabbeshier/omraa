@@ -108,22 +108,40 @@
   .add-shot svg{width:24px;height:24px}
   .add-shot:active{background:#e0e7ff}
 
+  /* منطقة الرفع: سحب وإفلات، أو اختيار من الجهاز، أو لصق من الكليببورد.
+     مفيش capture — الصور موجودة على الكمبيوتر، مش هتتصوّر دلوقتي. */
+  .drop{border:2px dashed var(--line);border-radius:14px;background:#fbfcfe;
+       padding:26px 18px;text-align:center;cursor:pointer;transition:.15s;margin-bottom:14px}
+  .drop:hover{border-color:var(--brand);background:#f5f7ff}
+  .drop.over{border-color:var(--brand);background:#eef2ff;transform:scale(1.01)}
+  .drop svg{width:34px;height:34px;color:var(--brand);margin-bottom:6px}
+  .drop .big{font-size:14px;font-weight:700;margin:0 0 3px}
+  .drop .small{font-size:11.5px;color:var(--muted);margin:0}
+
+  /* صينية المراجعة: الصور بتتراجع قبل الرفع، مش بتترفع وبعدين نصلّح */
+  .tray{border:1px solid var(--brand);border-radius:12px;padding:13px;margin-bottom:14px;
+       background:#f8faff}
+  .tray-head{display:flex;justify-content:space-between;align-items:center;gap:8px;
+       margin-bottom:10px;flex-wrap:wrap}
+  .tray-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px}
+  .tcard{border:1px solid var(--line);border-radius:9px;overflow:hidden;background:#fff;position:relative}
+  .tcard img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block}
+  .tcard select{width:100%;border:0;border-top:1px solid var(--line);border-radius:0;
+       padding:6px 7px;font-size:11.5px;background:#fff}
+  .tcard .x{position:absolute;top:4px;inset-inline-end:4px;width:21px;height:21px;border-radius:99px;
+       background:rgba(15,23,42,.75);color:#fff;border:0;font-size:12px;cursor:pointer;
+       display:flex;align-items:center;justify-content:center}
+  .tcard .sz{position:absolute;bottom:34px;inset-inline-start:4px;background:rgba(15,23,42,.72);
+       color:#fff;font-size:9.5px;padding:1px 6px;border-radius:99px}
+  .tcard .guess{position:absolute;top:4px;inset-inline-start:4px;background:var(--ok);
+       color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px}
+  .tcard.err{border-color:#fecaca}
+  .tcard .bad{position:absolute;inset:0;background:rgba(220,38,38,.82);color:#fff;
+       display:flex;align-items:center;justify-content:center;font-size:10.5px;padding:8px;text-align:center}
+  .tprog{height:5px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin-top:10px}
+  .tprog span{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .2s}
+
   /* أكشنز صورة واحدة */
-  .pactions{position:fixed;inset:0;z-index:90;background:rgba(15,23,42,.55);
-       display:flex;align-items:flex-end}
-  .pabox{background:#fff;width:100%;border-radius:16px 16px 0 0;
-       padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
-  .pabox h3{margin:0 0 4px;font-size:15px}
-  .pa-btn{display:block;width:100%;text-align:start;border:1px solid var(--line);background:#fff;
-       border-radius:10px;padding:12px 14px;font:inherit;font-size:13.5px;margin-bottom:8px;cursor:pointer}
-  .pa-btn:active{background:var(--bg)}
-  .pa-btn.danger{color:var(--danger);border-color:#fecaca}
-
-  .stickybar{position:fixed;inset-inline:0;bottom:0;z-index:82;background:rgba(255,255,255,.97);
-       backdrop-filter:blur(8px);border-top:1px solid var(--line);
-       padding:11px 16px calc(11px + env(safe-area-inset-bottom))}
-  .stickybar button{width:100%;padding:14px;font-size:15px}
-
   .tip{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;
        padding:10px 12px;font-size:12px;margin-bottom:14px;line-height:1.7}
   .warnbox{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;
@@ -136,7 +154,7 @@
   <header class="top">
     <div>
       <h1>صور المنتجات</h1>
-      <p class="sub">صوّري أو ارفعي — تظهر على الموقع فورًا</p>
+      <p class="sub">اسحب الصور من جهازك — تظهر على الموقع فورًا</p>
     </div>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="back" href="website.html">مركز تحكّم الموقع ←</a><a class="back" href="products.html">→ رجوع للمنتجات</a></div>
   </header>
@@ -184,44 +202,131 @@ async function rpc(fn, args) {
   return data;
 }
 
-/* Direct upload to Storage. A Cairo mobile connection makes a raw 4-8MB phone
-   photo a real cost in time and data — every shot is downscaled and
-   re-encoded to JPEG in the browser first, which is the single biggest lever
-   on how fast this page feels to use. */
-function compressImage(file, maxDim = 2400, quality = 0.92) {
-  return new Promise((resolve, reject) => {
+/* ── جودة الصورة ───────────────────────────────────────────────────
+   الصور جاية من الجهاز، مش من الكاميرا، فغالبًا معمول لها تجهيز أصلًا.
+   إعادة الترميز بتضيّع جودة من غير مقابل، فالقاعدة هنا:
+
+     • الصورة أصلًا في حدود المقاس وحجمها معقول  →  ترفع زي ما هي (بلا خسارة)
+     • أكبر من كده  →  تتصغّر لـ٢٤٠٠ بكسل وتترمّز JPEG بجودة ٠٫٩٢
+
+   ٢٤٠٠ مش رقم عشوائي: صفحة المنتج بتعرض الصورة على عرض العمود، والزوم
+   على الموبايل بيوصل لضعف الكثافة — أقل من كده بيبان ناعم على شاشة ريتينا،
+   وأكتر من كده بيتكلّف داتا العميلة من غير ما تشوف فرق. */
+const MAX_DIM = 2400;
+const KEEP_AS_IS_BYTES = 2.2 * 1024 * 1024;
+const OK_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+function readDimensions(file) {
+  return new Promise((resolve) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > maxDim || height > maxDim) {
-        const scale = maxDim / Math.max(width, height);
-        width = Math.round(width * scale); height = Math.round(height * scale);
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = width; canvas.height = height;
-      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("compress failed")), "image/jpeg", quality);
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("bad image")); };
+    img.onload = () => { URL.revokeObjectURL(url); resolve({ w: img.width, h: img.height }); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
 }
 
-async function uploadToStorage(productId, blob) {
+async function prepareImage(file) {
+  const ext = OK_TYPES[file.type];
+  if (!ext) throw new Error("ده مش ملف صورة (JPG أو PNG أو WEBP بس)");
+
+  const dim = await readDimensions(file);
+  if (!dim) throw new Error("الملف مش قادر يتفتح كصورة");
+
+  // ملف مظبوط أصلًا: نرفعه بالبايت بتاعه — أعلى جودة ممكنة وأسرع كمان
+  if (Math.max(dim.w, dim.h) <= MAX_DIM && file.size <= KEEP_AS_IS_BYTES) {
+    return { blob: file, ext, type: file.type, w: dim.w, h: dim.h, untouched: true };
+  }
+
+  const scale = Math.min(1, MAX_DIM / Math.max(dim.w, dim.h));
+  const width = Math.round(dim.w * scale), height = Math.round(dim.h * scale);
+  const bitmapUrl = URL.createObjectURL(file);
+  const img = await new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => rej(new Error("الملف مش قادر يتفتح كصورة"));
+    im.src = bitmapUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, width, height);
+  URL.revokeObjectURL(bitmapUrl);
+  const blob = await new Promise((res, rej) =>
+    canvas.toBlob((b) => b ? res(b) : rej(new Error("فشل تجهيز الصورة")), "image/jpeg", 0.92));
+  return { blob, ext: "jpg", type: "image/jpeg", w: width, h: height, untouched: false };
+}
+
+async function uploadToStorage(productId, blob, ext, type) {
   const tok = accessToken();
-  const path = `${productId}/${crypto.randomUUID()}.jpg`;
+  const path = `${productId}/${crypto.randomUUID()}.${ext || "jpg"}`;
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: "POST",
     headers: {
-      "Content-Type": "image/jpeg", apikey: ANON_KEY,
+      "Content-Type": type || "image/jpeg", apikey: ANON_KEY,
       Authorization: `Bearer ${tok || ANON_KEY}`, "x-upsert": "false",
     },
     body: blob,
   });
   if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(`رفع الصورة فشل: ${res.status} ${t.slice(0,120)}`); }
   return path;
+}
+
+const fmtSize = (b) => b >= 1048576 ? `${(b / 1048576).toFixed(1)} م.ب` : `${Math.round(b / 1024)} ك.ب`;
+
+/* ── تخمين اللون من اسم الملف ──────────────────────────────────────
+   اللي بيصوّر بيسمّي الملفات باللون غالبًا: "صندل-اسود-1.jpg" أو
+   "sandal_black_02.jpg". التخمين ده بيوفّر عشرات النقرات على ٤٠ صورة،
+   وبيفضل مجرد اقتراح — كل صورة قدامها قائمة تقدر تغيّرها قبل الرفع. */
+const COLOR_ALIASES = {
+  "أسود": ["اسود","أسود","سودا","سوداء","black","blk"],
+  "أبيض": ["ابيض","أبيض","بيضا","بيضاء","white","wht"],
+  "بيج":  ["بيج","beige","nude","بينك بيج"],
+  "بني":  ["بني","بنى","brown","تان","tan"],
+  "دهبي": ["دهبي","ذهبي","دهبى","gold","golden"],
+  "فضي":  ["فضي","فضى","silver"],
+  "أحمر": ["احمر","أحمر","حمرا","red"],
+  "أزرق": ["ازرق","أزرق","زرقا","blue","navy","كحلي"],
+  "أخضر": ["اخضر","أخضر","خضرا","green"],
+  "رمادي":["رمادي","رمادى","جراي","grey","gray"],
+  "وردي": ["وردي","وردى","بينك","pink","روز","rose"],
+  "جملي": ["جملي","جملى","camel"],
+  "نبيتي":["نبيتي","نبيتى","برجندي","burgundy","maroon"],
+};
+const stripName = (n) => n.replace(/\.[a-z0-9]+$/i, "")
+  .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+  .replace(/[_\-.()\[\]0-9]+/g, " ").toLowerCase();
+
+function guessColor(filename, colors) {
+  const hay = " " + stripName(filename) + " ";
+  // ١) اسم اللون بحاله في اسم الملف
+  for (const c of colors) {
+    const norm = stripName(c);
+    if (norm && hay.includes(" " + norm + " ")) return c;
+  }
+  // ٢) مرادف معروف (إنجليزي أو كتابة مختلفة)
+  for (const c of colors) {
+    const key = Object.keys(COLOR_ALIASES).find((k) => stripName(k) === stripName(c));
+    for (const alias of (COLOR_ALIASES[key] || [])) {
+      if (hay.includes(" " + stripName(alias) + " ")) return c;
+    }
+  }
+  return null;
+}
+
+/* رفع متوازي بسقف ٣ — أسرع بكتير من واحدة ورا واحدة على ٤٠ صورة،
+   ومن غير ما يخنق اتصال بيتي أو يرمي الرفعات على بعض. */
+async function runPool(items, limit, worker) {
+  let idx = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const i = idx++;
+      await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
 }
 
 function toast(msg, kind) {
@@ -317,56 +422,101 @@ function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
 }
 
 /* ── محرّر صور منتج واحد ──────────────────────────────────────────
-   اللون أولًا. الفلو القديم كان بيختار أول لون من نفسه، فأي صورة
-   تترفع من غير ما حد ياخد باله بتتربط بلون غلط — وده أسوأ من إنها
-   تفضل بلا لون، لأن العميلة بتشوف صورة مش بتاعة اللي اختارته. */
+   الفلو: تسحب الصور → تراجعها وألوانها في صينية → ترفع الكل مرة واحدة.
+   الترتيب ده مقصود: تصحيح لون قبل الرفع مجاني، وبعد الرفع بيتكلّف
+   نداء شبكة لكل صورة. */
 function Editor({ product, onClose, onChanged }) {
   const [images, setImages] = useState(product.images || []);
   const colors = product.colors || [];
-  // لو لون واحد بس، اختياره تلقائيًا مش تخمين — هو الاختيار الوحيد.
   const [sel, setSel] = useState(colors.length === 1 ? colors[0] : null);
-  const [busy, setBusy] = useState([]);
-  const [acting, setActing] = useState(null);   // صورة مفتوح عليها الأكشنز
+  const [tray, setTray] = useState([]);          // الصور المستنية الرفع
+  const [uploading, setUploading] = useState(false);
+  const [done, setDone] = useState(0);
+  const [over, setOver] = useState(false);
+  const [acting, setActing] = useState(null);
   const fileRef = useRef(null);
 
-  const countFor = (c) => images.filter((i) =>
-    c === GENERIC ? !i.color : i.color === c).length;
-  const firstFor = (c) => images.find((i) =>
-    c === GENERIC ? !i.color : i.color === c);
-
+  const countFor = (c) => images.filter((i) => c === GENERIC ? !i.color : i.color === c).length;
+  const firstFor = (c) => images.find((i) => c === GENERIC ? !i.color : i.color === c);
   const shown = sel === null ? images
     : images.filter((i) => (sel === GENERIC ? !i.color : i.color === sel));
 
-  const pickFiles = () => {
-    if (colors.length > 0 && sel === null) {
-      toast("اختاري اللون الأول — عشان الصورة تظهر للعميلة لما تختار اللون ده", "err");
+  // لصق من الكليببورد — أسرع طريقة لصورة واحدة على الديسكتوب
+  useEffect(() => {
+    const onPaste = (e) => {
+      const files = [...(e.clipboardData?.files || [])];
+      if (files.length) { e.preventDefault(); addToTray(files); }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  });
+
+  const addToTray = useCallback(async (fileList) => {
+    const files = Array.from(fileList || []).filter((f) => f && f.type.startsWith("image/"));
+    if (!files.length) return;
+    const rows = files.map((file) => {
+      const guessed = colors.length ? guessColor(file.name, colors) : null;
+      return {
+        key: crypto.randomUUID(), file,
+        preview: URL.createObjectURL(file),
+        // ترتيب الأولوية: تخمين من اسم الملف، وإلا اللون المفتوح دلوقتي
+        color: guessed || (sel && sel !== GENERIC ? sel : ""),
+        guessed: !!guessed,
+        size: file.size, status: "ready", error: "",
+      };
+    });
+    setTray((t) => [...t, ...rows]);
+  }, [colors, sel]);
+
+  const setTrayColor = (key, color) =>
+    setTray((t) => t.map((r) => r.key === key ? { ...r, color, guessed: false } : r));
+  const applyToAll = (color) =>
+    setTray((t) => t.map((r) => ({ ...r, color, guessed: false })));
+  const dropFromTray = (key) =>
+    setTray((t) => t.filter((r) => r.key !== key));
+
+  const untagged = colors.length ? tray.filter((r) => !r.color).length : 0;
+
+  const uploadAll = async () => {
+    if (!tray.length || uploading) return;
+    if (untagged > 0) {
+      toast(`${untagged} صورة لسه من غير لون — حدّديه أو خليها «عامة»`, "err");
       return;
     }
-    fileRef.current && fileRef.current.click();
-  };
-
-  const handleFiles = useCallback(async (fileList) => {
-    const files = Array.from(fileList || []);
-    const tagColor = sel && sel !== GENERIC ? sel : null;
-    for (const file of files) {
-      const localId = crypto.randomUUID();
-      setBusy((b) => [...b, localId]);
+    setUploading(true); setDone(0);
+    const results = [];
+    await runPool(tray, 3, async (row) => {
       try {
-        const blob = await compressImage(file);
-        const path = await uploadToStorage(product.id, blob);
+        const prep = await prepareImage(row.file);
+        const path = await uploadToStorage(product.id, prep.blob, prep.ext, prep.type);
         const res = await rpc("shop_fn_attach_product_image", {
-          p_product_id: product.id, p_path: path, p_color: tagColor,
+          p_product_id: product.id, p_path: path,
+          p_color: row.color && row.color !== GENERIC ? row.color : null,
         });
         if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
-        setImages((imgs) => [...imgs, { id: res.id, url: res.url, color: tagColor }]);
-        onChanged();
+        results.push({ key: row.key, ok: true,
+          img: { id: res.id, url: res.url, color: row.color === GENERIC ? null : row.color } });
       } catch (e) {
-        toast(e.message || "حصل خطأ أثناء الرفع", "err");
+        results.push({ key: row.key, ok: false, error: e.message || "فشل الرفع" });
       } finally {
-        setBusy((b) => b.filter((x) => x !== localId));
+        setDone((d) => d + 1);
       }
-    }
-  }, [product.id, sel, onChanged]);
+    });
+
+    const good = results.filter((r) => r.ok);
+    const bad = results.filter((r) => !r.ok);
+    if (good.length) setImages((imgs) => [...imgs, ...good.map((r) => r.img)]);
+    // الناجح بيختفي من الصينية، والفاشل بيفضل ومعاه سببه عشان يتعاد
+    setTray((t) => t.filter((r) => bad.some((b) => b.key === r.key))
+                    .map((r) => {
+                      const b = bad.find((x) => x.key === r.key);
+                      return { ...r, status: "error", error: b ? b.error : "" };
+                    }));
+    setUploading(false);
+    onChanged();
+    if (bad.length === 0) toast(`اترفعت ${good.length} صورة ✓`, "ok");
+    else toast(`اترفع ${good.length} — فضل ${bad.length} فيهم مشكلة`, "err");
+  };
 
   const removeImage = async (img) => {
     if (!confirm("تأكيد حذف الصورة؟")) return;
@@ -388,8 +538,7 @@ function Editor({ product, onClose, onChanged }) {
       if (!res || res.ok === false) throw new Error((res && res.error) || "فشل التعديل");
       setImages((imgs) => imgs.map((i) => i.id === img.id
         ? { ...i, color: color === GENERIC ? null : color } : i));
-      setActing(null); onChanged();
-      toast("اتظبط ✓", "ok");
+      setActing(null); onChanged(); toast("اتظبط ✓", "ok");
     } catch (e) { toast(e.message, "err"); }
   };
 
@@ -399,16 +548,29 @@ function Editor({ product, onClose, onChanged }) {
         { p_image_id: img.id, p_make_cover: true });
       if (!res || res.ok === false) throw new Error((res && res.error) || "فشل التعديل");
       setImages((imgs) => imgs.map((i) => ({ ...i, is_cover: i.id === img.id })));
-      setActing(null); onChanged();
-      toast("بقت صورة الغلاف ✓", "ok");
+      setActing(null); onChanged(); toast("بقت صورة الغلاف ✓", "ok");
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  // نقل صورة لأول اللون: أول صورة هي اللي العميلة بتشوفها فورًا
+  const moveFirst = async (img) => {
+    try {
+      const minSort = Math.min(...images.map((i) => i.sort ?? 0), 0);
+      const res = await rpc("shop_fn_update_product_image",
+        { p_image_id: img.id, p_sort: minSort - 1 });
+      if (!res || res.ok === false) throw new Error((res && res.error) || "فشل التعديل");
+      setImages((imgs) => [img, ...imgs.filter((i) => i.id !== img.id)]
+        .map((i, n) => ({ ...i, sort: n })));
+      setActing(null); onChanged(); toast("بقت أول صورة ✓", "ok");
     } catch (e) { toast(e.message, "err"); }
   };
 
   const missing = colors.filter((c) => countFor(c) === 0);
+  const guessedCount = tray.filter((r) => r.guessed).length;
 
   return (
     <>
-      <div className="veil on" onClick={onClose} />
+      <div className="veil on" onClick={uploading ? undefined : onClose} />
       <div className="sheet on">
         <div className="sheet-inner">
           <div className="sheet-head">
@@ -417,7 +579,7 @@ function Editor({ product, onClose, onChanged }) {
               <p className="sub">{product.category || "—"}
                 {!product.is_published && " · مخفي عن الموقع"}</p>
             </div>
-            <button className="sheet-close" onClick={onClose}>✕</button>
+            <button className="sheet-close" onClick={onClose} disabled={uploading}>✕</button>
           </div>
 
           {colors.length > 0 ? (
@@ -428,29 +590,21 @@ function Editor({ product, onClose, onChanged }) {
                   العميلة لما تختار لون من دول هتشوف صورة لون تاني.
                 </div>
               )}
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600,
-                              color: "var(--muted)", marginBottom: 6 }}>
-                اختاري اللون اللي بتصوّريه
-              </label>
               <div className="clist">
                 {colors.map((c) => {
                   const n = countFor(c); const f = firstFor(c);
                   return (
-                    <div key={c} className={`crow${sel === c ? " on" : ""}`}
-                         onClick={() => setSel(c)}>
+                    <div key={c} className={`crow${sel === c ? " on" : ""}`} onClick={() => setSel(c)}>
                       {f ? <img className="cthumb" src={f.url} alt="" />
                          : <span className="cthumb empty">＋</span>}
                       <span className="cname">{c}</span>
-                      <span className={`ccount${n ? " has" : ""}`}>
-                        {n ? `${n} صورة` : "لسه"}</span>
+                      <span className={`ccount${n ? " has" : ""}`}>{n ? `${n} صورة` : "لسه"}</span>
                     </div>
                   );
                 })}
-                <div className={`crow${sel === GENERIC ? " on" : ""}`}
-                     onClick={() => setSel(GENERIC)}>
-                  {firstFor(GENERIC)
-                    ? <img className="cthumb" src={firstFor(GENERIC).url} alt="" />
-                    : <span className="cthumb empty">＋</span>}
+                <div className={`crow${sel === GENERIC ? " on" : ""}`} onClick={() => setSel(GENERIC)}>
+                  {firstFor(GENERIC) ? <img className="cthumb" src={firstFor(GENERIC).url} alt="" />
+                                     : <span className="cthumb empty">＋</span>}
                   <span className="cname">صور عامة (كل الألوان)</span>
                   <span className={`ccount${countFor(GENERIC) ? " has" : ""}`}>
                     {countFor(GENERIC) ? `${countFor(GENERIC)} صورة` : "لسه"}</span>
@@ -463,9 +617,84 @@ function Editor({ product, onClose, onChanged }) {
             </div>
           )}
 
+          {/* منطقة السحب والإفلات */}
+          <div className={`drop${over ? " over" : ""}`}
+               onClick={() => fileRef.current && fileRef.current.click()}
+               onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+               onDragLeave={() => setOver(false)}
+               onDrop={(e) => { e.preventDefault(); setOver(false); addToTray(e.dataTransfer.files); }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M12 16V4m0 0L8 8m4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" strokeLinecap="round" />
+            </svg>
+            <p className="big">اسحب الصور هنا أو اضغط للاختيار</p>
+            <p className="small">
+              تقدر تختار مجلد صور كامل مرة واحدة، أو تعمل لصق (Ctrl+V).
+              JPG أو PNG أو WEBP.
+            </p>
+          </div>
+
+          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
+                 style={{ display: "none" }}
+                 onChange={(e) => { addToTray(e.target.files); e.target.value = ""; }} />
+
+          {/* صينية المراجعة */}
+          {tray.length > 0 && (
+            <div className="tray">
+              <div className="tray-head">
+                <div>
+                  <strong>{tray.length} صورة جاهزة للرفع</strong>
+                  {guessedCount > 0 && (
+                    <p className="sub" style={{ margin: 0 }}>
+                      خمّنت لون {guessedCount} منهم من اسم الملف — راجعيهم بسرعة.
+                    </p>
+                  )}
+                </div>
+                {colors.length > 0 && (
+                  <select style={{ width: "auto", minWidth: 150 }}
+                          disabled={uploading}
+                          onChange={(e) => { if (e.target.value) applyToAll(e.target.value); e.target.value = ""; }}>
+                    <option value="">طبّق لون على الكل…</option>
+                    {colors.map((c) => <option key={c} value={c}>{c}</option>)}
+                    <option value={GENERIC}>عامة (كل الألوان)</option>
+                  </select>
+                )}
+              </div>
+
+              <div className="tray-grid">
+                {tray.map((r) => (
+                  <div className={`tcard${r.status === "error" ? " err" : ""}`} key={r.key}>
+                    <img src={r.preview} alt="" />
+                    {r.guessed && <span className="guess">تخمين</span>}
+                    <span className="sz">{fmtSize(r.size)}</span>
+                    {!uploading && <button className="x" onClick={() => dropFromTray(r.key)}>✕</button>}
+                    {colors.length > 0 ? (
+                      <select value={r.color} disabled={uploading}
+                              onChange={(e) => setTrayColor(r.key, e.target.value)}>
+                        <option value="">— اختاري اللون —</option>
+                        {colors.map((c) => <option key={c} value={c}>{c}</option>)}
+                        <option value={GENERIC}>عامة</option>
+                      </select>
+                    ) : (
+                      <div style={{ fontSize: 11, padding: "6px 7px", color: "var(--muted)" }}>عامة</div>
+                    )}
+                    {r.status === "error" && <div className="bad">{r.error}</div>}
+                  </div>
+                ))}
+              </div>
+
+              {uploading && (
+                <div className="tprog">
+                  <span style={{ width: `${Math.round((done / tray.length) * 100)}%` }} />
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="tip">
-            حيطة بيضا أو ورقة كانسون، ضوء الشباك مش الفلاش، وزاوية ٣ أرباع.
-            ٣ أو ٤ صور لكل لون كفاية. دوسي على أي صورة عشان تغيّري لونها أو تخليها الغلاف.
+            الصورة اللي مقاسها مظبوط أصلًا بترفع زي ما هي من غير أي ضغط.
+            الأكبر من ٢٤٠٠ بكسل بتتصغّر لحد ٢٤٠٠ عشان ما تتقلش على العميلة.
+            دوسي على أي صورة مرفوعة عشان تغيّري لونها أو تخليها الغلاف.
           </div>
 
           <div className="shot-grid">
@@ -477,28 +706,19 @@ function Editor({ product, onClose, onChanged }) {
                 <span className="color-tag">{img.color || "عام"}</span>
               </div>
             ))}
-            {busy.map((id) => (
-              <div className="shot uploading" key={id}><div className="spin" /></div>
-            ))}
-            <div className="add-shot" onClick={pickFiles}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M4 7h3l2-2h6l2 2h3v13H4z" strokeLinejoin="round" />
-                <circle cx="12" cy="13" r="3.4" />
-              </svg>
-              {sel && sel !== GENERIC ? sel : "صوّري / ارفعي"}
-            </div>
+            {shown.length === 0 && (
+              <div className="empty" style={{ gridColumn: "1/-1" }}>
+                {sel ? "مفيش صور للاختيار ده لسه" : "مفيش صور لسه"}
+              </div>
+            )}
           </div>
-
-          <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
-                 style={{ display: "none" }}
-                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
         </div>
 
         <div className="stickybar">
-          <button className="btn-primary" onClick={pickFiles}>
-            {colors.length > 0 && sel === null
-              ? "اختاري لون الأول"
-              : `صوّري${sel && sel !== GENERIC ? ` «${sel}»` : ""}`}
+          <button className="btn-primary" onClick={uploadAll}
+                  disabled={!tray.length || uploading}>
+            {uploading ? `بيرفع… ${done} من ${tray.length}`
+              : tray.length ? `ارفع ${tray.length} صورة` : "اسحب الصور فوق عشان تبدأ"}
           </button>
         </div>
       </div>
@@ -510,9 +730,9 @@ function Editor({ product, onClose, onChanged }) {
             <p className="sub" style={{ marginBottom: 12 }}>
               اللون الحالي: {acting.color || "عام (كل الألوان)"}</p>
             {!acting.is_cover && (
-              <button className="pa-btn" onClick={() => makeCover(acting)}>
-                خليها صورة الغلاف</button>
+              <button className="pa-btn" onClick={() => makeCover(acting)}>خليها صورة الغلاف</button>
             )}
+            <button className="pa-btn" onClick={() => moveFirst(acting)}>خليها أول صورة</button>
             {colors.filter((c) => c !== acting.color).map((c) => (
               <button key={c} className="pa-btn" onClick={() => retag(acting, c)}>
                 غيّر اللون لـ «{c}»</button>
@@ -521,8 +741,7 @@ function Editor({ product, onClose, onChanged }) {
               <button className="pa-btn" onClick={() => retag(acting, GENERIC)}>
                 خليها عامة (كل الألوان)</button>
             )}
-            <button className="pa-btn danger" onClick={() => removeImage(acting)}>
-              احذف الصورة</button>
+            <button className="pa-btn danger" onClick={() => removeImage(acting)}>احذف الصورة</button>
             <button className="pa-btn" onClick={() => setActing(null)}>إلغاء</button>
           </div>
         </div>

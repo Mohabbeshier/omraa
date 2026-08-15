@@ -202,77 +202,134 @@ async function rpc(fn, args) {
   return data;
 }
 
-/* ── جودة الصورة ───────────────────────────────────────────────────
-   الصور جاية من الجهاز، مش من الكاميرا، فغالبًا معمول لها تجهيز أصلًا.
-   إعادة الترميز بتضيّع جودة من غير مقابل، فالقاعدة هنا:
+/* ── الجودة مقابل الوزن ────────────────────────────────────────────
+   الباقة المجانية بتدّي ٥ ج.ب نقل شهريًا. صورة ٢٤٠٠ بكسل ≈ ٦٠٠ ك.ب،
+   وصفحة المتجر فيها ٢٤ كارت — يعني ١٤ م.ب للزيارة الواحدة، والباقة
+   بتخلص بعد ٣٥٠ زيارة تقريبًا. ده مش تحسين، ده الفرق بين موقع شغّال
+   وموقع بيقف.
 
-     • الصورة أصلًا في حدود المقاس وحجمها معقول  →  ترفع زي ما هي (بلا خسارة)
-     • أكبر من كده  →  تتصغّر لـ٢٤٠٠ بكسل وتترمّز JPEG بجودة ٠٫٩٢
+   خدمة تصغير الصور في Supabase مدفوعة، فبنولّد المقاسات هنا في المتصفح
+   ونرفع تلاتة لكل لقطة:
 
-   ٢٤٠٠ مش رقم عشوائي: صفحة المنتج بتعرض الصورة على عرض العمود، والزوم
-   على الموبايل بيوصل لضعف الكثافة — أقل من كده بيبان ناعم على شاشة ريتينا،
-   وأكتر من كده بيتكلّف داتا العميلة من غير ما تشوف فرق. */
-const MAX_DIM = 2400;
-const KEEP_AS_IS_BYTES = 2.2 * 1024 * 1024;
+     _400  ← كارت الشبكة والمصغّرات   ≈ ٤٠ ك.ب
+     _900  ← الصورة الكبيرة على الموبايل ≈ ١٥٠ ك.ب
+     الأصل ← ديسكتوب وريتينا (≤١٨٠٠)   ≈ ٤٠٠ ك.ب
+
+   ١٨٠٠ مش ٢٤٠٠: عمود صورة المنتج ~٦٠٠ بكسل CSS، وريتينا بيطلب الضعف.
+   ١٨٠٠ بيغطّي ده بهامش، واللي فوقه بيتدفع من داتا العميلة بلا فايدة. */
+const FULL_DIM = 1800;
+const RENDITIONS = [400, 900];
+const KEEP_AS_IS_BYTES = 1.2 * 1024 * 1024;
 const OK_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
-function readDimensions(file) {
-  return new Promise((resolve) => {
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
-    img.onload = () => { URL.revokeObjectURL(url); resolve({ w: img.width, h: img.height }); };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.onload = () => { img.__url = url; resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("الملف مش قادر يتفتح كصورة")); };
     img.src = url;
   });
 }
 
+function scaleTo(img, maxDim, quality) {
+  const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, w, h);
+  return new Promise((res, rej) =>
+    canvas.toBlob((b) => b ? res(b) : rej(new Error("فشل تجهيز الصورة")), "image/jpeg", quality));
+}
+
+/* بترجع النسخة الكبيرة + النسخ الأصغر. النسخة الكبيرة بترفع بالبايت
+   بتاعها لو الأصل مظبوط أصلًا — إعادة الترميز خسارة جودة من غير مقابل. */
 async function prepareImage(file) {
   const ext = OK_TYPES[file.type];
   if (!ext) throw new Error("ده مش ملف صورة (JPG أو PNG أو WEBP بس)");
 
-  const dim = await readDimensions(file);
-  if (!dim) throw new Error("الملف مش قادر يتفتح كصورة");
+  const img = await loadImage(file);
+  try {
+    const untouched = Math.max(img.width, img.height) <= FULL_DIM && file.size <= KEEP_AS_IS_BYTES;
+    const full = untouched
+      ? { blob: file, ext, type: file.type }
+      : { blob: await scaleTo(img, FULL_DIM, 0.9), ext: "jpg", type: "image/jpeg" };
 
-  // ملف مظبوط أصلًا: نرفعه بالبايت بتاعه — أعلى جودة ممكنة وأسرع كمان
-  if (Math.max(dim.w, dim.h) <= MAX_DIM && file.size <= KEEP_AS_IS_BYTES) {
-    return { blob: file, ext, type: file.type, w: dim.w, h: dim.h, untouched: true };
+    const small = {};
+    for (const w of RENDITIONS) {
+      // مفيش لزوم لنسخة أكبر من الأصل — بتكبر الحجم من غير أي جودة زيادة
+      if (Math.max(img.width, img.height) <= w) continue;
+      small[w] = { blob: await scaleTo(img, w, w <= 400 ? 0.78 : 0.85), ext: "jpg", type: "image/jpeg" };
+    }
+    return { full, small, untouched, w: img.width, h: img.height };
+  } finally {
+    URL.revokeObjectURL(img.__url);
   }
-
-  const scale = Math.min(1, MAX_DIM / Math.max(dim.w, dim.h));
-  const width = Math.round(dim.w * scale), height = Math.round(dim.h * scale);
-  const bitmapUrl = URL.createObjectURL(file);
-  const img = await new Promise((res, rej) => {
-    const im = new Image();
-    im.onload = () => res(im);
-    im.onerror = () => rej(new Error("الملف مش قادر يتفتح كصورة"));
-    im.src = bitmapUrl;
-  });
-  const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, 0, 0, width, height);
-  URL.revokeObjectURL(bitmapUrl);
-  const blob = await new Promise((res, rej) =>
-    canvas.toBlob((b) => b ? res(b) : rej(new Error("فشل تجهيز الصورة")), "image/jpeg", 0.92));
-  return { blob, ext: "jpg", type: "image/jpeg", w: width, h: height, untouched: false };
 }
+
+/* اسم الملف UUID، يعني المحتوى ما بيتغيّرش أبدًا تحت نفس الاسم.
+   الكاش الافتراضي ساعة واحدة — يعني الزائر الراجع بيحمّل كل الصور من
+   أول وجديد. سنة كاملة هي الصح هنا، وبتقطع من فاتورة النقل مباشرة. */
+const CACHE_ONE_YEAR = "public, max-age=31536000, immutable";
 
 async function uploadToStorage(productId, blob, ext, type) {
   const tok = accessToken();
   const path = `${productId}/${crypto.randomUUID()}.${ext || "jpg"}`;
+  await putObject(path, blob, type, tok);
+  return path;
+}
+
+async function putObject(path, blob, type, tok) {
   const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
     method: "POST",
     headers: {
       "Content-Type": type || "image/jpeg", apikey: ANON_KEY,
-      Authorization: `Bearer ${tok || ANON_KEY}`, "x-upsert": "false",
+      Authorization: `Bearer ${tok || accessToken() || ANON_KEY}`,
+      "x-upsert": "false", "cache-control": CACHE_ONE_YEAR,
     },
     body: blob,
   });
   if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(`رفع الصورة فشل: ${res.status} ${t.slice(0,120)}`); }
   return path;
 }
+
+/* رفع لقطة كاملة: الأصل + نسخه، تحت نفس الاسم بلاحقة المقاس، عشان
+   يفضلوا مربوطين ببعض في التخزين ويسهل تنضيفهم مع بعض. */
+async function uploadShot(productId, prep) {
+  const tok = accessToken();
+  const base = crypto.randomUUID();
+  const fullPath = `${productId}/${base}.${prep.full.ext}`;
+  await putObject(fullPath, prep.full.blob, prep.full.type, tok);
+
+  const sizes = {};
+  for (const [w, r] of Object.entries(prep.small)) {
+    const p = `${productId}/${base}_${w}.${r.ext}`;
+    try { await putObject(p, r.blob, r.type, tok); sizes[w] = p; }
+    catch (e) { /* نسخة صغيرة فشلت؟ الموقع بيرجع للكبيرة، مش نوقف الرفع */ }
+  }
+  return { fullPath, sizes };
+}
+
+/* حذف صورة لازم يشيل ملفاتها من التخزين كمان. من غير ده كل حذف بيسيب
+   ملف يتيم بياكل من الـ١ ج.ب المجانية للأبد. */
+async function deleteObjects(paths) {
+  if (!paths.length) return;
+  await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", apikey: ANON_KEY,
+               Authorization: `Bearer ${accessToken() || ANON_KEY}` },
+    body: JSON.stringify({ prefixes: paths }),
+  }).catch(() => {});
+}
+
+const pathOf = (url) => {
+  const m = String(url || "").split(`/public/${BUCKET}/`)[1];
+  return m || null;
+};
 
 const fmtSize = (b) => b >= 1048576 ? `${(b / 1048576).toFixed(1)} م.ب` : `${Math.round(b / 1024)} ك.ب`;
 
@@ -431,7 +488,7 @@ function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
               <div className="thumb">
                 {p.st.key === "none" && <span className="needs">محتاج صور</span>}
                 {!p.is_published && <span className="pill-hidden">مخفي</span>}
-                {p.cover ? <img src={p.cover} alt="" loading="lazy" />
+                {p.cover ? <img src={p.cover_thumb || p.cover} alt="" loading="lazy" />
                          : <span className="no-img">بلا صورة</span>}
                 {p.photo_count > 0 && <span className="ph-count">{p.photo_count} صورة</span>}
               </div>
@@ -556,10 +613,11 @@ function Editor({ product, onClose, onChanged }) {
     await runPool(tray, 3, async (row) => {
       try {
         const prep = await prepareImage(row.file);
-        const path = await uploadToStorage(product.id, prep.blob, prep.ext, prep.type);
+        const { fullPath, sizes } = await uploadShot(product.id, prep);
         const res = await rpc("shop_fn_attach_product_image", {
-          p_product_id: product.id, p_path: path,
+          p_product_id: product.id, p_path: fullPath,
           p_color: row.color && row.color !== GENERIC ? row.color : null,
+          p_sizes: Object.keys(sizes).length ? sizes : null,
         });
         if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
         results.push({ key: row.key, ok: true,
@@ -601,6 +659,9 @@ function Editor({ product, onClose, onChanged }) {
     try {
       const res = await rpc("shop_fn_remove_product_image", { p_image_id: img.id });
       if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحذف");
+      // الصف اتمسح — الملفات كمان، وإلا بتفضل تاكل من المساحة للأبد
+      await deleteObjects([pathOf(img.url), ...Object.values(img.sizes || {}).map(pathOf)]
+        .filter(Boolean));
       setImages((imgs) => imgs.filter((i) => i.id !== img.id));
       setActing(null); onChanged();
     } catch (e) { toast(e.message, "err"); }
@@ -673,7 +734,7 @@ function Editor({ product, onClose, onChanged }) {
                   const n = countFor(c); const f = firstFor(c);
                   return (
                     <div key={c} className={`crow${sel === c ? " on" : ""}`} onClick={() => setSel(c)}>
-                      {f ? <img className="cthumb" src={f.url} alt="" />
+                      {f ? <img className="cthumb" src={f.thumb || f.url} alt="" />
                          : <span className="cthumb empty">＋</span>}
                       <span className="cname">{c}</span>
                       <span className={`ccount${n ? " has" : ""}`}>{n ? `${n} صورة` : "لسه"}</span>
@@ -681,7 +742,7 @@ function Editor({ product, onClose, onChanged }) {
                   );
                 })}
                 <div className={`crow${sel === GENERIC ? " on" : ""}`} onClick={() => setSel(GENERIC)}>
-                  {firstFor(GENERIC) ? <img className="cthumb" src={firstFor(GENERIC).url} alt="" />
+                  {firstFor(GENERIC) ? <img className="cthumb" src={firstFor(GENERIC).thumb || firstFor(GENERIC).url} alt="" />
                                      : <span className="cthumb empty">＋</span>}
                   <span className="cname">صور عامة (كل الألوان)</span>
                   <span className={`ccount${countFor(GENERIC) ? " has" : ""}`}>
@@ -779,8 +840,8 @@ function Editor({ product, onClose, onChanged }) {
           )}
 
           <div className="tip">
-            الصورة اللي مقاسها مظبوط أصلًا بترفع زي ما هي من غير أي ضغط.
-            الأكبر من ٢٤٠٠ بكسل بتتصغّر لحد ٢٤٠٠ عشان ما تتقلش على العميلة.
+            من كل صورة بيتعمل ٣ نسخ تلقائيًا: صغيرة للشبكة، متوسطة للموبايل،
+            وكبيرة للشاشات الكبيرة — العميلة بتحمّل المناسب لشاشتها بس.
             دوسي على أي صورة مرفوعة عشان تغيّري لونها أو تخليها الغلاف.
           </div>
 
@@ -788,7 +849,7 @@ function Editor({ product, onClose, onChanged }) {
             {shown.map((img) => (
               <div className={`shot${img.is_cover ? " cover" : ""}`} key={img.id}
                    onClick={() => setActing(img)}>
-                <img src={img.url} alt="" />
+                <img src={img.thumb || img.url} alt="" loading="lazy" />
                 {img.is_cover && <span className="cov">الغلاف</span>}
                 <span className="color-tag">{img.color || "عام"}</span>
               </div>

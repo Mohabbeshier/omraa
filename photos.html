@@ -276,6 +276,39 @@ async function uploadToStorage(productId, blob, ext, type) {
 
 const fmtSize = (b) => b >= 1048576 ? `${(b / 1048576).toFixed(1)} م.ب` : `${Math.round(b / 1024)} ك.ب`;
 
+/* سحب مجلد بيدّي DataTransferItem مش File — من غير القراءة دي، رمي مجلد
+   على الصفحة مكان بيعمل حاجة خالص وهي ساكتة. */
+function readEntry(entry) {
+  return new Promise((resolve) => {
+    if (!entry) return resolve([]);
+    if (entry.isFile) return entry.file((f) => resolve([f]), () => resolve([]));
+    if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const all = [];
+      const step = () => reader.readEntries(async (batch) => {
+        if (!batch.length) {
+          const nested = await Promise.all(all.map(readEntry));
+          return resolve(nested.flat());
+        }
+        all.push(...batch); step();
+      }, () => resolve([]));
+      step();
+    } else resolve([]);
+  });
+}
+
+async function filesFromDrop(dt) {
+  const items = dt && dt.items ? [...dt.items] : [];
+  const entries = items
+    .map((it) => (it.webkitGetAsEntry ? it.webkitGetAsEntry() : null))
+    .filter(Boolean);
+  if (entries.length) {
+    const nested = await Promise.all(entries.map(readEntry));
+    return nested.flat();
+  }
+  return [...(dt.files || [])];
+}
+
 /* ── تخمين اللون من اسم الملف ──────────────────────────────────────
    اللي بيصوّر بيسمّي الملفات باللون غالبًا: "صندل-اسود-1.jpg" أو
    "sandal_black_02.jpg". التخمين ده بيوفّر عشرات النقرات على ٤٠ صورة،
@@ -435,6 +468,7 @@ function Editor({ product, onClose, onChanged }) {
   const [over, setOver] = useState(false);
   const [acting, setActing] = useState(null);
   const fileRef = useRef(null);
+  const dirRef = useRef(null);
 
   const countFor = (c) => images.filter((i) => c === GENERIC ? !i.color : i.color === c).length;
   const firstFor = (c) => images.find((i) => c === GENERIC ? !i.color : i.color === c);
@@ -452,20 +486,45 @@ function Editor({ product, onClose, onChanged }) {
   });
 
   const addToTray = useCallback(async (fileList) => {
-    const files = Array.from(fileList || []).filter((f) => f && f.type.startsWith("image/"));
-    if (!files.length) return;
-    const rows = files.map((file) => {
-      const guessed = colors.length ? guessColor(file.name, colors) : null;
-      return {
-        key: crypto.randomUUID(), file,
-        preview: URL.createObjectURL(file),
-        // ترتيب الأولوية: تخمين من اسم الملف، وإلا اللون المفتوح دلوقتي
-        color: guessed || (sel && sel !== GENERIC ? sel : ""),
-        guessed: !!guessed,
-        size: file.size, status: "ready", error: "",
-      };
+    const incoming = Array.from(fileList || []).filter(Boolean);
+    if (!incoming.length) return;
+
+    // نوع مش مدعوم بيترفض هنا، مش بعد ما يقف في الصينية ويفشل عند الرفع.
+    // صور الآيفون HEIC أشهر حالة — الرسالة لازم تقول له يعمل إيه.
+    const wrongType = incoming.filter((f) => !OK_TYPES[f.type]);
+    const usable = incoming.filter((f) => OK_TYPES[f.type]);
+
+    setTray((t) => {
+      // نفس الملف مرتين (رمي نفس المجلد تاني) بيتخطّى بدل ما يتكرّر على الموقع
+      const seen = new Set(t.map((r) => `${r.file.name}|${r.file.size}`));
+      const fresh = [];
+      let dupes = 0;
+      for (const file of usable) {
+        const sig = `${file.name}|${file.size}`;
+        if (seen.has(sig)) { dupes++; continue; }
+        seen.add(sig);
+        const guessed = colors.length ? guessColor(file.name, colors) : null;
+        fresh.push({
+          key: crypto.randomUUID(), file,
+          preview: URL.createObjectURL(file),
+          // الأولوية: تخمين من اسم الملف، وإلا اللون المفتوح دلوقتي
+          color: guessed || (sel && sel !== GENERIC ? sel : ""),
+          guessed: !!guessed,
+          size: file.size, status: "ready", error: "",
+        });
+      }
+      if (wrongType.length) {
+        const heic = wrongType.some((f) => /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name));
+        toast(heic
+          ? `${wrongType.length} صورة بصيغة HEIC — حوّلها لـJPG الأول`
+          : `${wrongType.length} ملف مش صورة مدعومة (JPG/PNG/WEBP بس)`, "err");
+      } else if (dupes && !fresh.length) {
+        toast("الصور دي موجودة في القايمة أصلًا", "err");
+      } else if (dupes) {
+        toast(`اتخطّت ${dupes} صورة مكرّرة`);
+      }
+      return [...t, ...fresh];
     });
-    setTray((t) => [...t, ...rows]);
   }, [colors, sel]);
 
   const setTrayColor = (key, color) =>
@@ -473,7 +532,16 @@ function Editor({ product, onClose, onChanged }) {
   const applyToAll = (color) =>
     setTray((t) => t.map((r) => ({ ...r, color, guessed: false })));
   const dropFromTray = (key) =>
-    setTray((t) => t.filter((r) => r.key !== key));
+    setTray((t) => {
+      const row = t.find((r) => r.key === key);
+      if (row) URL.revokeObjectURL(row.preview);
+      return t.filter((r) => r.key !== key);
+    });
+
+  // ٤٠ صورة = ٤٠ blob URL محجوزة في الذاكرة لحد ما التاب يتقفل.
+  const trayRef = useRef([]);
+  useEffect(() => { trayRef.current = tray; }, [tray]);
+  useEffect(() => () => trayRef.current.forEach((r) => URL.revokeObjectURL(r.preview)), []);
 
   const untagged = colors.length ? tray.filter((r) => !r.color).length : 0;
 
@@ -505,7 +573,17 @@ function Editor({ product, onClose, onChanged }) {
 
     const good = results.filter((r) => r.ok);
     const bad = results.filter((r) => !r.ok);
-    if (good.length) setImages((imgs) => [...imgs, ...good.map((r) => r.img)]);
+    if (good.length) {
+      good.forEach((r) => { const row = tray.find((x) => x.key === r.key); if (row) URL.revokeObjectURL(row.preview); });
+      // نقرا من السيرفر بدل ما نبني الحالة محليًا: الغلاف والترتيب بيتحدّدوا
+      // هناك (أول صورة بتبقى الغلاف تلقائيًا)، والتخمين هنا كان بيوريه غلط.
+      try {
+        const fresh = await rpc("shop_fn_admin_product_images", { p_product_id: product.id });
+        setImages(Array.isArray(fresh) ? fresh : []);
+      } catch (e) {
+        setImages((imgs) => [...imgs, ...good.map((r) => r.img)]);
+      }
+    }
     // الناجح بيختفي من الصينية، والفاشل بيفضل ومعاه سببه عشان يتعاد
     setTray((t) => t.filter((r) => bad.some((b) => b.key === r.key))
                     .map((r) => {
@@ -622,19 +700,28 @@ function Editor({ product, onClose, onChanged }) {
                onClick={() => fileRef.current && fileRef.current.click()}
                onDragOver={(e) => { e.preventDefault(); setOver(true); }}
                onDragLeave={() => setOver(false)}
-               onDrop={(e) => { e.preventDefault(); setOver(false); addToTray(e.dataTransfer.files); }}>
+               onDrop={async (e) => {
+                 e.preventDefault(); setOver(false);
+                 addToTray(await filesFromDrop(e.dataTransfer));
+               }}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M12 16V4m0 0L8 8m4-4 4 4" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3" strokeLinecap="round" />
             </svg>
             <p className="big">اسحب الصور هنا أو اضغط للاختيار</p>
             <p className="small">
-              تقدر تختار مجلد صور كامل مرة واحدة، أو تعمل لصق (Ctrl+V).
-              JPG أو PNG أو WEBP.
+              تقدر ترمي مجلد كامل، أو تعمل لصق (Ctrl+V). JPG أو PNG أو WEBP.
             </p>
+            <button className="btn-ghost btn-sm" style={{ marginTop: 10 }}
+                    onClick={(e) => { e.stopPropagation(); dirRef.current && dirRef.current.click(); }}>
+              أو اختار مجلد من الجهاز
+            </button>
           </div>
 
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple
+                 style={{ display: "none" }}
+                 onChange={(e) => { addToTray(e.target.files); e.target.value = ""; }} />
+          <input ref={dirRef} type="file" multiple webkitdirectory="" directory=""
                  style={{ display: "none" }}
                  onChange={(e) => { addToTray(e.target.files); e.target.value = ""; }} />
 

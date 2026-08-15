@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>مركز تحكّم الموقع — الأمراء</title>
+<link rel="icon" href="icon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+    --card:#fff; --brand:#4f46e5; --accent:#e8490f; --ok:#16a34a;
+    --warn:#b45309; --danger:#dc2626;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:Alexandria,system-ui,sans-serif;font-size:14px;line-height:1.7}
+  .wrap{max-width:1120px;margin:0 auto;padding:18px 14px 90px}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:12px;
+       padding:14px 0;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  h1{font-size:19px;margin:0;font-weight:700}
+  h2{font-size:15.5px;margin:0 0 4px;font-weight:700}
+  h3{font-size:13.5px;margin:14px 0 8px;font-weight:700;color:var(--muted)}
+  .sub{color:var(--muted);font-size:12.5px;margin:0}
+  a.back{color:var(--brand);font-size:13px;text-decoration:none}
+  a.back:hover{text-decoration:underline}
+
+  .tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 15px;
+       font:inherit;font-size:12.5px;cursor:pointer;color:var(--muted);white-space:nowrap}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  .tab .badge{display:inline-block;background:var(--danger);color:#fff;border-radius:99px;
+       font-size:10px;padding:0 6px;margin-inline-start:5px;font-weight:700}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;
+        padding:16px;margin-bottom:12px}
+  .card.tight{padding:13px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>*{flex:1;min-width:150px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+  input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;
+        padding:9px 11px;font:inherit;font-size:13.5px;background:#fff;color:var(--ink)}
+  textarea{min-height:76px;resize:vertical;line-height:1.7}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent}
+  .field{margin-bottom:11px}
+  .hint{font-size:11.5px;color:var(--muted);margin:4px 0 0}
+
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid transparent;
+         padding:9px 15px;font-size:13.5px;font-weight:600}
+  .btn-primary{background:var(--ink);color:#fff}
+  .btn-primary:hover{background:var(--brand)}
+  .btn-ghost{background:#fff;border-color:var(--line);color:var(--ink)}
+  .btn-ghost:hover{background:var(--bg)}
+  .btn-danger{background:#fff;border-color:#fecaca;color:var(--danger)}
+  .btn-danger:hover{background:#fef2f2}
+  .btn-ok{background:#f0fdf4;border-color:#bbf7d0;color:var(--ok)}
+  .btn-sm{padding:5px 11px;font-size:12px}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+        padding:3px 9px;border-radius:99px;background:#f1f5f9;color:var(--muted)}
+  .pill.on{background:#dcfce7;color:var(--ok)}
+  .pill.off{background:#fee2e2;color:var(--danger)}
+  .pill.warn{background:#fef3c7;color:var(--warn)}
+  .pill.sale{background:#ffedd5;color:var(--accent)}
+
+  /* ── نظرة عامة ── */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+  .tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+  .tile .n{font-size:24px;font-weight:700;line-height:1.2}
+  .tile .l{font-size:12px;color:var(--muted)}
+  .tile.bad{border-color:#fecaca;background:#fff7f7}
+  .tile.bad .n{color:var(--danger)}
+  .tile.good{border-color:#bbf7d0;background:#f7fdf9}
+  .tile.good .n{color:var(--ok)}
+  .tile.warn{border-color:#fde68a;background:#fffbeb}
+  .tile.warn .n{color:var(--warn)}
+  .tile.link{cursor:pointer}
+  .tile.link:hover{box-shadow:0 2px 10px rgba(15,23,42,.07)}
+
+  .todo{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px dashed var(--line)}
+  .todo:last-child{border-bottom:0}
+  .todo .dot{width:9px;height:9px;border-radius:99px;margin-top:8px;flex:0 0 auto}
+  .todo .dot.red{background:var(--danger)} .todo .dot.amber{background:var(--warn)}
+  .todo .dot.green{background:var(--ok)}
+  .todo .body{flex:1;min-width:0}
+  .todo .t{font-weight:600;font-size:13.5px}
+  .todo .d{font-size:12px;color:var(--muted)}
+
+  /* ── جداول ── */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:right;font-size:11.5px;color:var(--muted);font-weight:600;
+     padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:8px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  .scroller{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  td input{padding:6px 8px;font-size:12.5px}
+  .w-num{max-width:88px}
+
+  .switch{display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:12.5px;font-weight:600}
+  .switch input{width:auto;margin:0}
+
+  .list-item{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;flex-wrap:wrap}
+  .list-item:last-child{border-bottom:0}
+  .grow{flex:1;min-width:120px}
+  .name{font-weight:600;font-size:13.5px}
+  .meta{font-size:11.5px;color:var(--muted)}
+
+  .picker{border:1px solid var(--line);border-radius:8px;max-height:250px;overflow:auto;padding:4px}
+  .pick-row{display:flex;gap:9px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer}
+  .pick-row:hover{background:var(--bg)}
+  .pick-row input{width:auto}
+  .pick-name{flex:1;font-size:13px}
+  .pick-meta{font-size:11.5px;color:var(--muted)}
+  .empty{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
+  .note{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;
+        font-size:12.5px;color:#78350f;margin:10px 0}
+  .note.info{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+
+  .slide-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fcfcfd}
+  .slide-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}
+
+  #toast{position:fixed;inset-block-end:18px;inset-inline-start:50%;transform:translateX(50%);
+    background:var(--ink);color:#fff;padding:11px 20px;border-radius:99px;font-size:13.5px;
+    font-weight:600;display:none;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:92vw}
+  #toast.err{background:var(--danger)}
+  .savebar{position:sticky;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);
+    border-top:1px solid var(--line);padding:11px 0;margin-top:14px;display:flex;gap:9px;
+    justify-content:flex-end;flex-wrap:wrap;z-index:5}
+  .dirty-dot{width:8px;height:8px;border-radius:99px;background:var(--accent);display:inline-block;margin-inline-end:6px}
+  @media(max-width:560px){
+    .wrap{padding:14px 11px 90px}
+    .row>*{min-width:100%}
+    .savebar button{flex:1}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>مركز تحكّم الموقع</h1>
+      <p class="sub">كل حاجة على الموقع بتتظبط من هنا — من غير كود ولا داتابيز.</p>
+    </div>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="back" href="photos.html">صور المنتجات ←</a><a class="back" href="dashboard.html">→ رجوع للنظام</a></div>
+  </header>
+  <div id="app"><div class="card"><p class="sub">بحمّل…</p></div></div>
+</div>
+<div id="toast"></div>
+<script src="website.js"></script>
+</body>
+</html>

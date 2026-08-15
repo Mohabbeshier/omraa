@@ -52,53 +52,83 @@
        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .pcard .meta{font-size:11px;color:var(--muted)}
 
+  /* شريط تقدّم صغير على الكارت: بيقول فورًا فضل كام لون */
+  .pcard .bar{height:4px;background:#f1f5f9;border-radius:99px;overflow:hidden;margin-top:7px}
+  .pcard .bar span{display:block;height:100%;background:var(--ok);border-radius:99px}
+  .pcard .done{border-color:#bbf7d0}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .fchip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;
+       font:inherit;font-size:12.5px;cursor:pointer;color:var(--muted);white-space:nowrap}
+  .fchip.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+  .pill-hidden{position:absolute;top:6px;inset-inline-end:6px;background:#475569;color:#fff;
+       font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px}
+
   /* editor */
   .veil{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:80;display:none}
   .veil.on{display:block}
   .sheet{position:fixed;inset-inline:0;bottom:0;z-index:81;background:#fff;
-       border-radius:16px 16px 0 0;max-height:92vh;overflow-y:auto;
+       border-radius:16px 16px 0 0;max-height:94vh;overflow-y:auto;
        transform:translateY(100%);transition:transform .25s ease;
        box-shadow:0 -20px 50px -20px rgba(0,0,0,.4)}
   .sheet.on{transform:translateY(0)}
-  .sheet-inner{padding:18px 16px calc(24px + env(safe-area-inset-bottom))}
-  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .sheet-inner{padding:18px 16px calc(96px + env(safe-area-inset-bottom))}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px}
   .sheet-close{background:none;border:0;font-size:20px;color:var(--muted);padding:4px 8px;cursor:pointer}
 
-  .shot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  /* اللون أولًا: كل لون سطر واضح فيه عدّاده — مش شيب صغير يتنسى */
+  .clist{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+  .crow{display:flex;align-items:center;gap:11px;padding:11px 13px;cursor:pointer;
+       border-bottom:1px solid #f1f5f9;background:#fff}
+  .crow:last-child{border-bottom:0}
+  .crow.on{background:#eef2ff}
+  .crow .cname{flex:1;font-size:13.5px;font-weight:600}
+  .crow .ccount{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;
+       background:#f1f5f9;color:var(--muted)}
+  .crow .ccount.has{background:#dcfce7;color:var(--ok)}
+  .crow .cthumb{width:34px;height:34px;border-radius:8px;object-fit:cover;
+       border:1px solid var(--line);flex:0 0 auto;background:var(--bg)}
+  .crow .cthumb.empty{display:flex;align-items:center;justify-content:center;
+       color:var(--muted);font-size:15px}
+
+  .shot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
   .shot{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;
-       border:1.5px solid var(--line);background:var(--bg)}
+       border:1.5px solid var(--line);background:var(--bg);cursor:pointer}
+  .shot.cover{border-color:var(--ok);border-width:2.5px}
   .shot img{width:100%;height:100%;object-fit:cover;display:block}
   .shot .color-tag{position:absolute;bottom:0;inset-inline:0;background:rgba(15,23,42,.75);
        color:#fff;font-size:10px;text-align:center;padding:3px 4px}
-  .shot .rm{position:absolute;top:4px;inset-inline-end:4px;width:22px;height:22px;border-radius:99px;
-       background:rgba(15,23,42,.75);color:#fff;border:0;font-size:13px;cursor:pointer;
-       display:flex;align-items:center;justify-content:center}
+  .shot .cov{position:absolute;top:4px;inset-inline-start:4px;background:var(--ok);color:#fff;
+       font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:99px}
   .shot.uploading{display:flex;align-items:center;justify-content:center}
   .shot .spin{width:20px;height:20px;border:2.5px solid var(--line);border-top-color:var(--brand);
        border-radius:99px;animation:sp .7s linear infinite}
-  .add-shot{aspect-ratio:1/1;border-radius:10px;border:1.5px dashed var(--line);
-       background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;
-       gap:4px;color:var(--brand);font-size:11px;font-weight:600;cursor:pointer}
+  .add-shot{aspect-ratio:1/1;border-radius:10px;border:1.5px dashed var(--brand);
+       background:#eef2ff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+       gap:4px;color:var(--brand);font-size:11px;font-weight:600;cursor:pointer;text-align:center;padding:6px}
   .add-shot svg{width:24px;height:24px}
-  .add-shot:active{background:#eef2ff}
+  .add-shot:active{background:#e0e7ff}
 
-  .color-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
-  .color-chip{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;
-       font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
-  .color-chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  /* أكشنز صورة واحدة */
+  .pactions{position:fixed;inset:0;z-index:90;background:rgba(15,23,42,.55);
+       display:flex;align-items:flex-end}
+  .pabox{background:#fff;width:100%;border-radius:16px 16px 0 0;
+       padding:16px 16px calc(20px + env(safe-area-inset-bottom))}
+  .pabox h3{margin:0 0 4px;font-size:15px}
+  .pa-btn{display:block;width:100%;text-align:start;border:1px solid var(--line);background:#fff;
+       border-radius:10px;padding:12px 14px;font:inherit;font-size:13.5px;margin-bottom:8px;cursor:pointer}
+  .pa-btn:active{background:var(--bg)}
+  .pa-btn.danger{color:var(--danger);border-color:#fecaca}
+
+  .stickybar{position:fixed;inset-inline:0;bottom:0;z-index:82;background:rgba(255,255,255,.97);
+       backdrop-filter:blur(8px);border-top:1px solid var(--line);
+       padding:11px 16px calc(11px + env(safe-area-inset-bottom))}
+  .stickybar button{width:100%;padding:14px;font-size:15px}
 
   .tip{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:8px;
-       padding:10px 12px;font-size:12px;margin-bottom:16px;line-height:1.7}
+       padding:10px 12px;font-size:12px;margin-bottom:14px;line-height:1.7}
+  .warnbox{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;
+       padding:10px 12px;font-size:12.5px;margin-bottom:14px;line-height:1.7}
 
-  @keyframes sp{to{transform:rotate(360deg)}}
-  #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99;
-        background:var(--ink);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;
-        display:none;box-shadow:0 12px 30px -12px rgba(0,0,0,.5);max-width:90vw}
-  #toast.err{background:var(--danger)}
-  #toast.ok{background:var(--ok)}
-  .center{text-align:center;padding:60px 20px}
-  .spin-big{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);
-        border-radius:99px;animation:sp .7s linear infinite;margin:0 auto 12px}
 </style>
 </head>
 <body>
@@ -202,70 +232,141 @@ function toast(msg, kind) {
   toast._t = setTimeout(() => { el.style.display = "none"; }, 3200);
 }
 
-function ProductGrid({ products, onOpen, filter }) {
-  const q = filter.trim().toLowerCase();
-  const list = products.filter((p) => !q || p.name.toLowerCase().includes(q));
-  const needing = products.filter((p) => (p.photo_count || 0) === 0).length;
+const GENERIC = "__generic__";
+
+/* ── قائمة المنتجات ───────────────────────────────────────────────
+   الترتيب مقصود: اللي محتاج صور فوق. ده هو الطابور، مش قائمة تصفّح. */
+function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
+  const q = filter.trim();
+  const stateOf = (p) => {
+    const total = (p.colors || []).length;
+    const covered = total
+      ? p.colors.filter((c) => (p.by_color || {})[c] > 0).length
+      : (p.photo_count > 0 ? 1 : 0);
+    const target = total || 1;
+    if (p.photo_count === 0) return { key: "none", covered: 0, target };
+    if (covered < target) return { key: "partial", covered, target };
+    return { key: "done", covered, target };
+  };
+
+  const withState = products.map((p) => ({ ...p, st: stateOf(p) }));
+  const counts = {
+    none: withState.filter((p) => p.st.key === "none").length,
+    partial: withState.filter((p) => p.st.key === "partial").length,
+    done: withState.filter((p) => p.st.key === "done").length,
+  };
+
+  let list = withState;
+  if (tab !== "all") list = list.filter((p) => p.st.key === tab);
+  if (q) list = list.filter((p) => (p.name || "").includes(q));
 
   return (
     <>
-      {needing > 0 && (
+      <div className="search-row">
+        <input placeholder="دوّري على موديل…" value={filter}
+               onChange={(e) => setFilter(e.target.value)} />
+      </div>
+
+      <div className="filters">
+        {[["none", "محتاج صور", counts.none],
+          ["partial", "ناقص ألوان", counts.partial],
+          ["done", "تمام", counts.done],
+          ["all", "الكل", withState.length]].map(([k, label, n]) => (
+          <button key={k} className={`fchip${tab === k ? " on" : ""}`}
+                  onClick={() => setTab(k)}>{label} ({n})</button>
+        ))}
+      </div>
+
+      {tab === "none" && counts.none > 0 && (
         <div className="queue-banner">
-          <strong>{needing}</strong> موديل لسه محتاج صور — دول أهم حاجة تتصوّر النهاردة.
+          ابدئي بـ<strong>خمسة</strong> بس — أحسن خمس موديلات عندك. الموقع بيبيع بالصورة،
+          والموديل من غير صورة زي ما يكون مش موجود.
         </div>
       )}
+
       <div className="grid">
-        {list.map((p) => (
-          <div className="pcard" key={p.id} onClick={() => onOpen(p)}>
-            <div className="thumb">
-              {p.photo_count === 0 && <span className="needs">محتاج صور</span>}
-              {p.cover ? <img src={p.cover} alt="" loading="lazy" /> : <span className="no-img">بلا صورة</span>}
-              {p.photo_count > 0 && <span className="ph-count">{p.photo_count} صورة</span>}
+        {list.map((p) => {
+          const pct = Math.round((p.st.covered / p.st.target) * 100);
+          return (
+            <div className={`pcard${p.st.key === "done" ? " done" : ""}`} key={p.id}
+                 onClick={() => onOpen(p)}>
+              <div className="thumb">
+                {p.st.key === "none" && <span className="needs">محتاج صور</span>}
+                {!p.is_published && <span className="pill-hidden">مخفي</span>}
+                {p.cover ? <img src={p.cover} alt="" loading="lazy" />
+                         : <span className="no-img">بلا صورة</span>}
+                {p.photo_count > 0 && <span className="ph-count">{p.photo_count} صورة</span>}
+              </div>
+              <div className="body">
+                <p className="name">{p.name}</p>
+                <p className="meta">
+                  {(p.colors || []).length
+                    ? `${p.st.covered} من ${p.st.target} ألوان`
+                    : (p.photo_count ? `${p.photo_count} صورة` : "لسه")}
+                </p>
+                <div className="bar"><span style={{ width: `${pct}%` }} /></div>
+              </div>
             </div>
-            <div className="body">
-              <p className="name">{p.name}</p>
-              <p className="meta">{p.category || "—"}</p>
-            </div>
-          </div>
-        ))}
-        {list.length === 0 && <div className="empty" style={{gridColumn:"1/-1"}}>لا يوجد منتج بهذا الاسم</div>}
+          );
+        })}
+        {list.length === 0 && <div className="empty" style={{ gridColumn: "1/-1" }}>
+          مفيش موديل هنا</div>}
       </div>
     </>
   );
 }
 
-/* Colours offered here are only the ones this specific product actually
-   stocks (from variant_barcodes), never a generic list — tagging a shot with
-   a colour the product doesn't come in would be worse than not tagging it. */
-function Editor({ product, colors, onClose, onChanged }) {
+/* ── محرّر صور منتج واحد ──────────────────────────────────────────
+   اللون أولًا. الفلو القديم كان بيختار أول لون من نفسه، فأي صورة
+   تترفع من غير ما حد ياخد باله بتتربط بلون غلط — وده أسوأ من إنها
+   تفضل بلا لون، لأن العميلة بتشوف صورة مش بتاعة اللي اختارته. */
+function Editor({ product, onClose, onChanged }) {
   const [images, setImages] = useState(product.images || []);
-  const [activeColor, setActiveColor] = useState(colors[0] || null);
-  const [busy, setBusy] = useState(new Set());
+  const colors = product.colors || [];
+  // لو لون واحد بس، اختياره تلقائيًا مش تخمين — هو الاختيار الوحيد.
+  const [sel, setSel] = useState(colors.length === 1 ? colors[0] : null);
+  const [busy, setBusy] = useState([]);
+  const [acting, setActing] = useState(null);   // صورة مفتوح عليها الأكشنز
   const fileRef = useRef(null);
 
-  const pickFiles = () => fileRef.current && fileRef.current.click();
+  const countFor = (c) => images.filter((i) =>
+    c === GENERIC ? !i.color : i.color === c).length;
+  const firstFor = (c) => images.find((i) =>
+    c === GENERIC ? !i.color : i.color === c);
+
+  const shown = sel === null ? images
+    : images.filter((i) => (sel === GENERIC ? !i.color : i.color === sel));
+
+  const pickFiles = () => {
+    if (colors.length > 0 && sel === null) {
+      toast("اختاري اللون الأول — عشان الصورة تظهر للعميلة لما تختار اللون ده", "err");
+      return;
+    }
+    fileRef.current && fileRef.current.click();
+  };
 
   const handleFiles = useCallback(async (fileList) => {
     const files = Array.from(fileList || []);
+    const tagColor = sel && sel !== GENERIC ? sel : null;
     for (const file of files) {
       const localId = crypto.randomUUID();
-      setBusy((b) => new Set(b).add(localId));
+      setBusy((b) => [...b, localId]);
       try {
         const blob = await compressImage(file);
         const path = await uploadToStorage(product.id, blob);
         const res = await rpc("shop_fn_attach_product_image", {
-          p_product_id: product.id, p_path: path, p_color: activeColor || null,
+          p_product_id: product.id, p_path: path, p_color: tagColor,
         });
         if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
-        setImages((imgs) => [...imgs, { id: res.id, url: res.url, color: activeColor }]);
+        setImages((imgs) => [...imgs, { id: res.id, url: res.url, color: tagColor }]);
         onChanged();
       } catch (e) {
         toast(e.message || "حصل خطأ أثناء الرفع", "err");
       } finally {
-        setBusy((b) => { const n = new Set(b); n.delete(localId); return n; });
+        setBusy((b) => b.filter((x) => x !== localId));
       }
     }
-  }, [product.id, activeColor, onChanged]);
+  }, [product.id, sel, onChanged]);
 
   const removeImage = async (img) => {
     if (!confirm("تأكيد حذف الصورة؟")) return;
@@ -273,9 +374,37 @@ function Editor({ product, colors, onClose, onChanged }) {
       const res = await rpc("shop_fn_remove_product_image", { p_image_id: img.id });
       if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحذف");
       setImages((imgs) => imgs.filter((i) => i.id !== img.id));
-      onChanged();
+      setActing(null); onChanged();
     } catch (e) { toast(e.message, "err"); }
   };
+
+  const retag = async (img, color) => {
+    try {
+      const res = await rpc("shop_fn_update_product_image", {
+        p_image_id: img.id,
+        p_color: color === GENERIC ? null : color,
+        p_clear_color: color === GENERIC,
+      });
+      if (!res || res.ok === false) throw new Error((res && res.error) || "فشل التعديل");
+      setImages((imgs) => imgs.map((i) => i.id === img.id
+        ? { ...i, color: color === GENERIC ? null : color } : i));
+      setActing(null); onChanged();
+      toast("اتظبط ✓", "ok");
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  const makeCover = async (img) => {
+    try {
+      const res = await rpc("shop_fn_update_product_image",
+        { p_image_id: img.id, p_make_cover: true });
+      if (!res || res.ok === false) throw new Error((res && res.error) || "فشل التعديل");
+      setImages((imgs) => imgs.map((i) => ({ ...i, is_cover: i.id === img.id })));
+      setActing(null); onChanged();
+      toast("بقت صورة الغلاف ✓", "ok");
+    } catch (e) { toast(e.message, "err"); }
+  };
+
+  const missing = colors.filter((c) => countFor(c) === 0);
 
   return (
     <>
@@ -283,35 +412,72 @@ function Editor({ product, colors, onClose, onChanged }) {
       <div className="sheet on">
         <div className="sheet-inner">
           <div className="sheet-head">
-            <div><h2>{product.name}</h2><p className="sub">{product.category}</p></div>
+            <div>
+              <h2>{product.name}</h2>
+              <p className="sub">{product.category || "—"}
+                {!product.is_published && " · مخفي عن الموقع"}</p>
+            </div>
             <button className="sheet-close" onClick={onClose}>✕</button>
           </div>
 
-          {colors.length > 0 && (
+          {colors.length > 0 ? (
             <>
-              <label>اللون اللي بتصوّريه دلوقتي</label>
-              <div className="color-row">
-                {colors.map((c) => (
-                  <button key={c} className={`color-chip${activeColor === c ? " on" : ""}`}
-                          onClick={() => setActiveColor(c)}>{c}</button>
-                ))}
+              {missing.length > 0 && (
+                <div className="warnbox">
+                  لسه من غير صور: <strong>{missing.join("، ")}</strong>.
+                  العميلة لما تختار لون من دول هتشوف صورة لون تاني.
+                </div>
+              )}
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600,
+                              color: "var(--muted)", marginBottom: 6 }}>
+                اختاري اللون اللي بتصوّريه
+              </label>
+              <div className="clist">
+                {colors.map((c) => {
+                  const n = countFor(c); const f = firstFor(c);
+                  return (
+                    <div key={c} className={`crow${sel === c ? " on" : ""}`}
+                         onClick={() => setSel(c)}>
+                      {f ? <img className="cthumb" src={f.url} alt="" />
+                         : <span className="cthumb empty">＋</span>}
+                      <span className="cname">{c}</span>
+                      <span className={`ccount${n ? " has" : ""}`}>
+                        {n ? `${n} صورة` : "لسه"}</span>
+                    </div>
+                  );
+                })}
+                <div className={`crow${sel === GENERIC ? " on" : ""}`}
+                     onClick={() => setSel(GENERIC)}>
+                  {firstFor(GENERIC)
+                    ? <img className="cthumb" src={firstFor(GENERIC).url} alt="" />
+                    : <span className="cthumb empty">＋</span>}
+                  <span className="cname">صور عامة (كل الألوان)</span>
+                  <span className={`ccount${countFor(GENERIC) ? " has" : ""}`}>
+                    {countFor(GENERIC) ? `${countFor(GENERIC)} صورة` : "لسه"}</span>
+                </div>
               </div>
             </>
+          ) : (
+            <div className="tip">
+              الموديل ده مسجّل من غير ألوان في المخزون، فالصور هتبقى عامة لكل الموديل.
+            </div>
           )}
 
           <div className="tip">
-            حيطة بيضا أو ورقة كانسون، ضوء الشباك مش الفلاش، وزاوية ٣ أرباع. ٤ صور كفاية لكل لون.
+            حيطة بيضا أو ورقة كانسون، ضوء الشباك مش الفلاش، وزاوية ٣ أرباع.
+            ٣ أو ٤ صور لكل لون كفاية. دوسي على أي صورة عشان تغيّري لونها أو تخليها الغلاف.
           </div>
 
           <div className="shot-grid">
-            {images.map((img) => (
-              <div className="shot" key={img.id}>
+            {shown.map((img) => (
+              <div className={`shot${img.is_cover ? " cover" : ""}`} key={img.id}
+                   onClick={() => setActing(img)}>
                 <img src={img.url} alt="" />
-                {img.color && <span className="color-tag">{img.color}</span>}
-                <button className="rm" onClick={() => removeImage(img)}>✕</button>
+                {img.is_cover && <span className="cov">الغلاف</span>}
+                <span className="color-tag">{img.color || "عام"}</span>
               </div>
             ))}
-            {[...busy].map((id) => (
+            {busy.map((id) => (
               <div className="shot uploading" key={id}><div className="spin" /></div>
             ))}
             <div className="add-shot" onClick={pickFiles}>
@@ -319,16 +485,48 @@ function Editor({ product, colors, onClose, onChanged }) {
                 <path d="M4 7h3l2-2h6l2 2h3v13H4z" strokeLinejoin="round" />
                 <circle cx="12" cy="13" r="3.4" />
               </svg>
-              صوّري / ارفعي
+              {sel && sel !== GENERIC ? sel : "صوّري / ارفعي"}
             </div>
           </div>
 
           <input ref={fileRef} type="file" accept="image/*" multiple capture="environment"
-                 style={{ display: "none" }} onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+                 style={{ display: "none" }}
+                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+        </div>
 
-          <button className="btn-primary" style={{ width: "100%" }} onClick={onClose}>تم</button>
+        <div className="stickybar">
+          <button className="btn-primary" onClick={pickFiles}>
+            {colors.length > 0 && sel === null
+              ? "اختاري لون الأول"
+              : `صوّري${sel && sel !== GENERIC ? ` «${sel}»` : ""}`}
+          </button>
         </div>
       </div>
+
+      {acting && (
+        <div className="pactions" onClick={() => setActing(null)}>
+          <div className="pabox" onClick={(e) => e.stopPropagation()}>
+            <h3>الصورة دي</h3>
+            <p className="sub" style={{ marginBottom: 12 }}>
+              اللون الحالي: {acting.color || "عام (كل الألوان)"}</p>
+            {!acting.is_cover && (
+              <button className="pa-btn" onClick={() => makeCover(acting)}>
+                خليها صورة الغلاف</button>
+            )}
+            {colors.filter((c) => c !== acting.color).map((c) => (
+              <button key={c} className="pa-btn" onClick={() => retag(acting, c)}>
+                غيّر اللون لـ «{c}»</button>
+            ))}
+            {acting.color && (
+              <button className="pa-btn" onClick={() => retag(acting, GENERIC)}>
+                خليها عامة (كل الألوان)</button>
+            )}
+            <button className="pa-btn danger" onClick={() => removeImage(acting)}>
+              احذف الصورة</button>
+            <button className="pa-btn" onClick={() => setActing(null)}>إلغاء</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -336,21 +534,16 @@ function Editor({ product, colors, onClose, onChanged }) {
 function App() {
   const [products, setProducts] = useState(null);
   const [filter, setFilter] = useState("");
-  const [open, setOpen] = useState(null);   // { id, name, category, images }
-  const [openColors, setOpenColors] = useState([]);
+  const [tab, setTab] = useState("none");
+  const [open, setOpen] = useState(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      // shop_fn_catalog already carries image + colour data per product and
-      // needs no separate admin listing endpoint.
-      const res = await rpc("shop_fn_catalog", { p_limit: 60, p_sort: "newest" });
-      const items = (res && res.items) || [];
-      setProducts(items.map((p) => ({
-        id: p.id, name: p.name, category: p.category,
-        cover: p.image_url, photo_count: (p.images || []).length,
-        colors: p.colors || [],
-      })));
+      // طابور إداري: بيشمل غير المنشور كمان — ده بالظبط اللي بيتصوّر
+      // قبل ما ينزل الموقع. الكتالوج العام كان بيخفيه.
+      const rows = await rpc("shop_fn_admin_photo_queue", { p_q: null });
+      setProducts(Array.isArray(rows) ? rows : []);
     } catch (e) { setError(e.message || "تعذّر تحميل المنتجات"); }
   }, []);
 
@@ -358,27 +551,22 @@ function App() {
 
   const openProduct = async (p) => {
     try {
-      const imgs = await rpc("shop_fn_product_images", { p_product_id: p.id });
-      setOpen({ id: p.id, name: p.name, category: p.category, images: imgs || [] });
-      setOpenColors(p.colors || []);
+      const imgs = await rpc("shop_fn_admin_product_images", { p_product_id: p.id });
+      setOpen({ ...p, images: imgs || [] });
     } catch (e) { toast(e.message, "err"); }
   };
 
-  if (error) return <div className="center"><p style={{color:"var(--danger)"}}>{error}</p></div>;
+  if (error) return <div className="center"><p style={{ color: "var(--danger)" }}>{error}</p></div>;
   if (!products) return <div className="center"><div className="spin-big" /><p className="muted">جارٍ التحميل…</p></div>;
 
   return (
     <>
-      <div className="search-row">
-        <input placeholder="دوّري على موديل…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      </div>
-      <ProductGrid products={products} filter={filter} onOpen={openProduct} />
+      <ProductGrid products={products} filter={filter} setFilter={setFilter}
+                   tab={tab} setTab={setTab} onOpen={openProduct} />
       {open && (
-        <Editor
-          product={open} colors={openColors}
-          onClose={() => { setOpen(null); load(); }}
-          onChanged={load}
-        />
+        <Editor product={open}
+                onClose={() => { setOpen(null); load(); }}
+                onChanged={load} />
       )}
     </>
   );

@@ -11,18 +11,80 @@ const SUPABASE_URL = "https://mjetglnmivwphxyzflsz.supabase.co";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
 const SITE_URL = "https://mohabbeshier.github.io/omraa-store-preview/";
 
-/* نفس الجلسة اللي الـPOS فتحها على نفس الأصل — بلا تسجيل دخول تاني. */
-function accessToken(){
+/* ── الجلسة ────────────────────────────────────────────────────────
+   الـPOS بيستخدم @supabase/ssr، وده بيخزّن الجلسة في **كوكي** مش في
+   localStorage — والكوكي ممكن تكون:
+     • متقسّمة على أجزاء:  sb-<ref>-auth-token.0 / .1 / …
+     • مبدوءة بـ"base64-" ومكوّدة base64url
+     • JSON عادي، أو مصفوفة أول عنصر فيها الـaccess_token
+   القراءة القديمة كانت بتدوّر في localStorage وتعمل JSON.parse على طول،
+   فكانت بترجع null وتقع على مفتاح anon — والنتيجة رسالة
+   "permission denied for function …" مالهاش أي علاقة بالمشكلة الحقيقية.
+
+   بنقرا من الكوكي أولًا ومن localStorage كاحتياطي، وبنقرا **مع كل نداء**
+   عشان لو الـPOS جدّد الجلسة في تاب تاني نمشي على الجديد. */
+const SB_REF = SUPABASE_URL.replace(/^https?:\/\//, "").split(".")[0];
+
+function b64urlToText(s){
+  const pad = s.length % 4 ? "=".repeat(4 - (s.length % 4)) : "";
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function readCookieChunks(name){
+  const jar = {};
+  for(const part of String(document.cookie || "").split(";")){
+    const i = part.indexOf("=");
+    if(i < 0) continue;
+    jar[part.slice(0, i).trim()] = part.slice(i + 1);
+  }
+  if(jar[name] !== undefined) return jar[name];
+  // الكوكي الكبيرة بتتقسّم لأجزاء مرقّمة، ولازم تترص بالترتيب
+  let out = "", n = 0;
+  while(jar[`${name}.${n}`] !== undefined){ out += jar[`${name}.${n}`]; n++; }
+  return n > 0 ? out : null;
+}
+
+function parseSession(raw){
+  if(!raw) return null;
+  let v = raw;
+  try{ v = decodeURIComponent(v); }catch(e){}
+  if(v.startsWith("base64-")){
+    try{ v = b64urlToText(v.slice(7)); }catch(e){ return null; }
+  }
+  let o; try{ o = JSON.parse(v); }catch(e){ return null; }
+  if(Array.isArray(o)) return { access_token: o[0], expires_at: o[2] };
+  if(o && o.currentSession) o = o.currentSession;
+  return o && o.access_token ? o : null;
+}
+
+function session(){
+  const s = parseSession(readCookieChunks(`sb-${SB_REF}-auth-token`));
+  if(s) return s;
   try{
-    for(let i=0;i<localStorage.length;i++){
+    for(let i = 0; i < localStorage.length; i++){
       const k = localStorage.key(i);
-      if(/^sb-.*-auth-token$/.test(k)){
-        const v = JSON.parse(localStorage.getItem(k));
-        if(v && v.access_token) return v.access_token;
+      if(/^sb-.*-auth-token(\.\d+)?$/.test(k)){
+        const t = parseSession(localStorage.getItem(k));
+        if(t) return t;
       }
     }
   }catch(e){}
   return null;
+}
+
+function accessToken(){
+  const s = session();
+  return s ? s.access_token : null;
+}
+
+/* التوكن بيقع بعد ساعة. لو الـPOS مقفول في التابات التانية، الجلسة
+   ما بتتجددش، والنداء بيرجع 401 برسالة مالهاش معنى. بنكشف ده هنا
+   ونقول له يعمل إيه. */
+function sessionExpired(){
+  const s = session();
+  return !!(s && s.expires_at && Number(s.expires_at) * 1000 < Date.now());
 }
 
 async function rpc(fn, args){
@@ -35,8 +97,26 @@ async function rpc(fn, args){
   });
   const txt = await res.text();
   let data=null; try{ data = txt?JSON.parse(txt):null; }catch(e){ data = txt; }
-  if(!res.ok) throw new Error((data && (data.message||data.hint)) || `HTTP ${res.status}`);
+  if(!res.ok){
+    const raw = (data && (data.message||data.hint)) || `HTTP ${res.status}`;
+    throw new Error(explainAuth(raw, res.status));
+  }
   return data;
+}
+
+/* رسالة قاعدة البيانات بتشرح الأعراض، مش السبب. "permission denied for
+   function" معناها إن النداء اتبعت بمفتاح الزائر مش بجلستك. */
+function explainAuth(raw, status){
+  const s = String(raw||"");
+  if(!accessToken())
+    return "مش لاقي جلستك — يمكن الكوكيز متقفلة أو خرجت من النظام. افتح صفحة الدخول وسجّل دخول بحساب المالك.";
+  if(sessionExpired() || status === 401)
+    return "جلستك انتهت. افتح النظام في تاب تاني عشان تتجدد، وبعدين حدّث الصفحة.";
+  if(/permission denied for function/i.test(s))
+    return "الحساب ده مش مصرّح له. لازم تدخل بحساب المالك.";
+  if(/owner only|unauthorised/i.test(s))
+    return "الصفحة دي للمالك بس. سجّل دخول بحساب المالك.";
+  return s;
 }
 
 /* ── حالة الصفحة ───────────────────────────────────────────────── */
@@ -85,8 +165,11 @@ async function load(first){
   }catch(e){
     $("#app").innerHTML = `<div class="card"><h2>مش قادر أفتح البيانات</h2>
       <p class="sub">${esc(e.message)}</p>
-      <p class="sub">لو الرسالة بتقول <code>owner only</code> أو <code>unauthorised</code>،
-      افتح <a href="login.html">صفحة الدخول</a> وسجّل دخول بحساب المالك، وبعدين ارجع هنا.</p></div>`;
+      <div class="actions">
+        <a class="btn-primary" style="text-decoration:none;padding:9px 15px;border-radius:8px;
+           background:var(--ink);color:#fff" href="login.html">سجّل دخول</a>
+        <button class="btn-ghost" onclick="location.reload()">حدّث الصفحة</button>
+      </div></div>`;
   }
 }
 

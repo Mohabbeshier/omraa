@@ -157,9 +157,19 @@ async function load(){
     S.loaded = true;
     render();
   }catch(e){
+    const offline = !navigator.onLine || /Failed to fetch|NetworkError|load failed/i.test(e.message||"");
     $("#app").innerHTML = `<div class="center">
-      <p style="color:var(--danger);font-weight:600">${esc(e.message)}</p>
-      <p><a href="login.html">سجّل دخول</a></p></div>`;
+      <p style="color:var(--danger);font-weight:600">
+        ${offline ? "مفيش نت" : esc(e.message)}</p>
+      <p style="font-size:13px">${offline
+        ? "الشحنات محتاجة نت عشان تظهر. هتتحمّل لوحدها أول ما النت يرجع."
+        : "لو الرسالة عن الجلسة، سجّل دخول تاني."}</p>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+        <button class="go" style="border:0;border-radius:10px;padding:12px 20px;font:inherit;
+          font-weight:700;background:var(--ink);color:#fff" onclick="load()">جرّب تاني</button>
+        ${offline ? "" : `<a class="alt" style="text-decoration:none;padding:12px 20px;border:1px solid var(--line);
+          border-radius:10px;color:var(--ink)" href="login.html">سجّل دخول</a>`}
+      </div></div>`;
   }
 }
 
@@ -389,9 +399,14 @@ function confirmReturn(id){
   closeSheet(); advance(id,"returned");
 }
 
-/* تحديث لما يرجع للصفحة — بيبقى فاتحها طول اليوم */
+/* تحديث لما يرجع للصفحة — بيبقى فاتحها طول اليوم.
+   مهم: الشرط كان بيتطلب S.loaded، يعني لو أول تحميل فشل (نت مقطوع)
+   الرجوع للتطبيق مكانش بيعيد المحاولة أبدًا، وكان لازم يعرف إنه
+   يعمل reload بنفسه. دلوقتي بيعيد المحاولة في الحالتين. */
 document.addEventListener("visibilitychange", ()=>{
-  if(document.visibilityState==="visible" && S.loaded && !S.busy) load();
+  if(document.visibilityState==="visible" && !S.busy) load();
 });
+// النت رجع وهو فاتح الشاشة: نحمّل من غير ما يعمل حاجة
+window.addEventListener("online", ()=>{ if(!S.busy) load(); });
 
 load();

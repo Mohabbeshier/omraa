@@ -181,3 +181,15 @@ echo "  ✅ كل ملفات .txt متطابقة مع html ومراجعها مو�
 
 echo ""
 echo "✅ كل الفحوصات نجحت — آمن للـ push"
+
+# ── فحص 6: photos.build.js لازم يكون مولّد من photos.jsx الحالي ──────
+# (الخطر: حد يعدّل الـjsx وينسى يبني، فالمنشور يفضل الكود القديم —
+#  نفس فئة فخ الشانك المكرر اللي ضيّع جلستين)
+if [ -f photos.jsx ]; then
+  node scripts/build_photos.js >/dev/null 2>&1
+  if ! git diff --quiet -- photos.build.js 2>/dev/null; then
+    echo "  ❌ photos.build.js مش متطابق مع photos.jsx — اتبنى دلوقتي، راجع الفرق واعمل add"
+    exit 1
+  fi
+  echo "  ✅ photos.build.js متطابق مع مصدره"
+fi

@@ -1,7 +1,7 @@
 /* Omraa POS service worker — network-first + قشرة محفوظة للأوفلاين.
    الاستراتيجية: كل طلب بيروح للشبكة الأول بـno-store، فالتحديث بيوصل
    من غير ما المستخدم يعمل حاجة. الكاش للأوفلاين بس. */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = 'omraa-net-first-' + VERSION;
 
 /* الصفحات الأساسية بتتحفظ وقت التثبيت. من غير كده، أول مرة يفتح فيها
@@ -10,6 +10,9 @@ const CACHE = 'omraa-net-first-' + VERSION;
 const SHELL = [
   '/omraa/dashboard.html', '/omraa/shipping.html', '/omraa/pos.html',
   '/omraa/login.html', '/omraa/manifest.json', '/omraa/icon-192.png',
+  '/omraa/photos.html', '/omraa/photos.build.js',
+  '/omraa/vendor/react.min.js', '/omraa/vendor/react-dom.min.js',
+  '/omraa/shipping.js', '/omraa/omraa-telemetry.js',
 ];
 
 self.addEventListener('install', (e) => {

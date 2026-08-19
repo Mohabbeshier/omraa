@@ -121,6 +121,18 @@
   .slide-card{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#fcfcfd}
   .slide-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}
 
+  /* تذكير النسخ: بيتلوّن حسب كام يوم عدّى فعلًا، مش رسالة ثابتة
+     بتتجاهل بعد أسبوع. أهم حاجة إنه قابل للتنفيذ بضغطة من مكانه. */
+  .bkp{display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+       border-radius:12px;padding:13px 15px;margin-bottom:14px;border:1px solid}
+  .bkp .grow{flex:1;min-width:190px}
+  .bkp .t{font-weight:700;font-size:13.5px;margin:0}
+  .bkp .d{font-size:12px;margin:2px 0 0;opacity:.85}
+  .bkp.ok{background:#f7fdf9;border-color:#bbf7d0;color:#14532d}
+  .bkp.due{background:#fffbeb;border-color:#fde68a;color:#78350f}
+  .bkp.overdue,.bkp.never{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+  .bkp button{white-space:nowrap}
+
   #toast{position:fixed;inset-block-end:18px;inset-inline-start:50%;transform:translateX(50%);
     background:var(--ink);color:#fff;padding:11px 20px;border-radius:99px;font-size:13.5px;
     font-weight:600;display:none;z-index:99;box-shadow:0 8px 24px rgba(0,0,0,.18);max-width:92vw}

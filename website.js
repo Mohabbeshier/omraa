@@ -41,7 +41,7 @@ async function rpc(fn, args){
 
 /* ── حالة الصفحة ───────────────────────────────────────────────── */
 let S = {
-  tab: "home", data:null, busy:false, dirty:{},
+  tab: "home", data:null, backup:null, busy:false, dirty:{},
   draft:{},            // نسخة تحت التعديل من الإعدادات
   ship:null,           // نسخة تحت التعديل من أسعار الشحن
   pq:"", pfilter:"all", psel:[],   // شاشة المنتجات
@@ -73,6 +73,8 @@ async function guard(fn){
 async function load(first){
   try{
     S.data = await rpc("shop_fn_admin_site",{});
+    // حالة النسخ نداء منفصل عن قصد: لو فشل، الداشبورد تفضل شغّالة
+    try{ S.backup = await rpc("pos_fn_backup_health",{}); }catch(e){ S.backup = null; }
     // نسخة العمل تتبني من السيرفر كل مرة، إلا لو فيه تعديلات لسه ما اتحفظتش
     if(first || !Object.keys(S.dirty).length){
       S.draft = clone(S.data.settings);
@@ -169,6 +171,8 @@ function homeTab(){
          href="${SITE_URL}" target="_blank" rel="noopener">افتح الموقع</a>
     </div>
   </div>
+
+  ${backupCard()}
 
   <div class="card">
     <h2>محتاج منك حاجة</h2>
@@ -933,12 +937,95 @@ function go(tab, filter){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+/* ══ تذكير النسخة الاحتياطية ═════════════════════════════════════
+   النسخ اليومية عايشة جوّه نفس قاعدة البيانات. دي بتحمي من الغلط
+   البشري، بس مش بتحمي لو المشروع نفسه ضاع — والباقة المجانية مفيهاش
+   نسخ من Supabase. النسخة اللي بتتنزّل على جهازه هي الحماية الوحيدة
+   ضد ده، ومحدش غيره يقدر ينزّلها.
+
+   اللافتة بتظهر فوق كل تاب لما توصل ٧ أيام، وبتقفل بضغطة واحدة. */
+function backupBanner(){
+  const b = S.backup;
+  if(!b) return "";
+  const lvl = b.offsite_level;
+  if(lvl === "ok") return "";
+
+  const days = b.offsite_days == null ? null : Math.floor(b.offsite_days);
+  const title = lvl === "never" ? "لسه ما نزّلتش ولا نسخة على جهازك"
+    : lvl === "overdue" ? `بقى ${num(days)} يوم من غير نسخة على جهازك`
+    : `عدّى ${num(days)} يوم على آخر نسخة نزّلتها`;
+  const detail = lvl === "never"
+    ? "فيه نسخة يومية تلقائية، بس هي جوّه نفس قاعدة البيانات. لو المشروع ضاع، تضيع معاه."
+    : "النسخة اليومية شغّالة، بس جوّه نفس القاعدة. النسخة اللي على جهازك هي الوحيدة اللي بتحميك لو المشروع نفسه ضاع.";
+
+  return `<div class="bkp ${lvl}">
+    <div class="grow"><p class="t">${esc(title)}</p><p class="d">${esc(detail)}</p></div>
+    <button class="btn-primary" onclick="downloadBackup()" ${S.dl?"disabled":""}>
+      ${S.dl?"بيجهّز…":"نزّل نسخة دلوقتي"}</button>
+  </div>`;
+}
+
+/* بطاقة دائمة في «نظرة عامة» — حتى وهي سليمة، عشان يشوف الأرقام
+   ويثق فيها بدل ما يفتكر إن مفيش نسخ. */
+function backupCard(){
+  const b = S.backup;
+  if(!b) return "";
+  const lvl = b.offsite_level;
+  const when = (t) => t ? new Date(t).toLocaleDateString("ar-EG",
+    {year:"numeric",month:"long",day:"numeric"}) : "—";
+  return `<div class="card">
+    <h2>النسخ الاحتياطي</h2>
+    <div class="list-item">
+      <div class="grow"><div class="name">النسخة التلقائية اليومية</div>
+        <div class="meta">آخر واحدة ${esc(when(b.last_snapshot))} · ${num(b.snapshot_tables)} جدول ·
+          ${num(b.total_rows)} صف · محفوظ ${num(b.snapshot_count)} نسخة</div></div>
+      <span class="pill ${b.coverage_ok?'on':'off'}">${b.coverage_ok?"كاملة":"ناقصة"}</span>
+    </div>
+    <div class="list-item">
+      <div class="grow"><div class="name">النسخة اللي على جهازك</div>
+        <div class="meta">${lvl==="never" ? "ولا مرة"
+          : `آخر واحدة ${esc(when(b.last_offsite))} · من ${num(Math.floor(b.offsite_days))} يوم`}</div></div>
+      <span class="pill ${lvl==="ok"?"on":lvl==="due"?"warn":"off"}">
+        ${lvl==="ok"?"حديثة":lvl==="due"?"وقتها":"متأخرة"}</span>
+      <button class="btn-ghost btn-sm" onclick="downloadBackup()" ${S.dl?"disabled":""}>
+        ${S.dl?"بيجهّز…":"نزّل"}</button>
+    </div>
+    ${b.coverage_ok?"":`<div class="note">النسخة اليومية غطّت ${num(b.snapshot_tables)} جدول من
+      ${num(b.expected_tables)} — فيه جدول مش بيتحفظ. بلّغني.</div>`}
+    <p class="hint">النسخة اليومية بتحميك من الغلط البشري. النسخة اللي بتنزّلها على جهازك
+      هي اللي بتحميك لو مشروع القاعدة نفسه ضاع — خليها كل أسبوع في مكانين.</p>
+  </div>`;
+}
+
+async function downloadBackup(){
+  if(S.dl) return;
+  S.dl = true; render();
+  try{
+    const doc = await rpc("pos_fn_export_all",{});
+    const stamp = new Date().toISOString().slice(0,10);
+    const blob = new Blob([JSON.stringify(doc)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `omraa-backup-${stamp}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    // المتصفح لسه بيكتب الملف لحظة الضغط — التفكيك بعد شوية
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    toast(`نزّلت ${num(doc.total_rows)} صف — احفظه في مكانين ✓`);
+    S.backup = await rpc("pos_fn_backup_health",{});
+  }catch(e){
+    toast(e.message||"مش قادر أجهّز النسخة", true);
+  }finally{
+    S.dl = false; render();
+  }
+}
+
 function render(){
   if(!S.data) return;
   const pend = S.data.health.reviews_pending;
   const body = {home:homeTab, content:contentTab, products:productsTab,
                 offers:offersTab, shipping:shippingTab, settings:settingsTab, reviews:reviewsTab}[S.tab]();
   $("#app").innerHTML = `
+    ${backupBanner()}
     <div class="tabs">
       ${TABS.map(([k,l])=>`<button class="tab ${S.tab===k?"on":""}" onclick="go('${k}')">${l}${
         k==="reviews"&&pend?`<span class="badge">${num(pend)}</span>`:""}</button>`).join("")}

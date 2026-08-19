@@ -197,7 +197,12 @@ async function rpc(fn, args){
   return data;
 }
 
-let S = { tab:"collections", data:null, editC:null, editB:null, busy:false };
+let S = { tab:"collections", data:null, editC:null, editB:null, busy:false,
+  /* نفس درس website.js: قيم النماذج في الحالة مش في الـDOM. القراءة
+     بـ$("#id").value وقت الضغط بتقع لو الشاشة اترسمت من جديد، وأي رندر
+     كان بيمسح اللي المستخدم كتبه من غير ما ياخد باله. */
+  f:{ dcat:"", dpct:"", dend:"", spct:"", send:"" } };
+function setF(k,v){ S.f[k]=v; }
 const $ = s => document.querySelector(s);
 const esc = s => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money = n => new Intl.NumberFormat("ar-EG",{style:"currency",currency:"EGP",maximumFractionDigits:2}).format(Number(n)||0);
@@ -325,10 +330,13 @@ function discountsTab(){
       <p class="sub">أسرع طريقة: اختار التصنيف والنسبة وتاريخ الانتهاء.</p>
       <div class="row" style="margin-top:12px">
         <div class="field"><label>التصنيف</label>
-          <select id="dcat">${S.data.categories.map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
+          <select onchange="setF('dcat',this.value)">${S.data.categories
+            .map(c=>`<option ${S.f.dcat===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
         <div class="field"><label>نسبة الخصم %</label>
-          <input id="dpct" type="number" min="1" max="90" placeholder="مثلاً 25"></div>
-        <div class="field"><label>ينتهي في</label><input id="dend" type="date"></div>
+          <input type="number" min="1" max="90" placeholder="مثلاً 25"
+                 value="${esc(S.f.dpct)}" oninput="setF('dpct',this.value)"></div>
+        <div class="field"><label>ينتهي في</label>
+          <input type="date" value="${esc(S.f.dend)}" oninput="setF('dend',this.value)"></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="applyCat()" ${S.busy?"disabled":""}>طبّق الخصم</button>
@@ -341,8 +349,10 @@ function discountsTab(){
       <div class="field" style="margin-top:10px">${picker(sel,"toggleD","d")}</div>
       <div class="row">
         <div class="field"><label>نسبة الخصم %</label>
-          <input id="spct" type="number" min="1" max="90" placeholder="مثلاً 25"></div>
-        <div class="field"><label>ينتهي في</label><input id="send" type="date"></div>
+          <input type="number" min="1" max="90" placeholder="مثلاً 25"
+                 value="${esc(S.f.spct)}" oninput="setF('spct',this.value)"></div>
+        <div class="field"><label>ينتهي في</label>
+          <input type="date" value="${esc(S.f.send)}" oninput="setF('send',this.value)"></div>
       </div>
       <div class="actions">
         <button class="btn-primary" onclick="applySel()" ${(!sel.length||S.busy)?"disabled":""}>
@@ -466,7 +476,9 @@ async function delC(id,name){
 function toggleD(id){ S.discSel=S.discSel||[]; const i=S.discSel.indexOf(id);
   i>=0?S.discSel.splice(i,1):S.discSel.push(id); render(); }
 async function applyCat(){
-  const cat=$("#dcat").value, pct=Number($("#dpct").value), end=$("#dend").value;
+  const cat=S.f.dcat || (S.data.categories||[]).filter(Boolean)[0];
+  const pct=Number(S.f.dpct), end=S.f.dend;
+  if(!cat) return toast("مفيش تصنيفات", true);
   if(!pct||pct<1||pct>90) return toast("اكتب نسبة خصم بين 1 و 90", true);
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",
     {p_category:cat,p_percent:pct,p_starts_at:new Date().toISOString(),
@@ -474,13 +486,14 @@ async function applyCat(){
     toast(`الخصم اتطبّق على ${r.updated} منتج ✓`); });
 }
 async function clearCat(){
-  const cat=$("#dcat").value;
+  const cat=S.f.dcat || (S.data.categories||[]).filter(Boolean)[0];
+  if(!cat) return toast("مفيش تصنيفات", true);
   if(!confirm(`تشيل الخصم عن كل منتجات «${cat}»؟`)) return;
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",{p_category:cat,p_percent:null});
     toast(`الخصم اتشال عن ${r.updated} منتج ✓`); });
 }
 async function applySel(){
-  const pct=Number($("#spct").value), end=$("#send").value;
+  const pct=Number(S.f.spct), end=S.f.send;
   if(!pct||pct<1||pct>90) return toast("اكتب نسبة خصم بين 1 و 90", true);
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",
     {p_product_ids:S.discSel,p_percent:pct,p_starts_at:new Date().toISOString(),

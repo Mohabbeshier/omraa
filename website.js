@@ -125,6 +125,11 @@ let S = {
   draft:{},            // نسخة تحت التعديل من الإعدادات
   ship:null,           // نسخة تحت التعديل من أسعار الشحن
   pq:"", pfilter:"all", psel:[],   // شاشة المنتجات
+  /* قيم النماذج في الحالة مش في الـDOM. قراءتها بـ$("#id").value وقت
+     الضغط كانت بتقع بـTypeError لو الشاشة اترسمت من جديد قبل الضغط،
+     والأسوأ إن أي رندر (تحديث لافتة النسخ مثلًا) كان بيمسح اللي كتبه
+     من غير ما ياخد باله. */
+  f:{ gpct:"", gend:"", dcat:"", dpct:"", dend:"", spct:"", send:"", bulkprice:"" },
   editC:null, editB:null, discSel:[], q_c:"", q_b:"", q_d:""
 };
 
@@ -401,6 +406,9 @@ function contentTab(){
 }
 
 /* تعديل قيمة جوّا الـdraft بمسار زي 'hero.slides.0.title_ar' */
+/* ربط حقل بالحالة من غير إعادة رسم — الكتابة ما تتقطعش. */
+function setF(k, v){ S.f[k] = v; }
+
 function setIn(path, val){
   const parts = path.split(".");
   let o = S.draft;
@@ -605,9 +613,10 @@ function offersTab(){
     ${live.length? `<div class="note">شغّال دلوقتي: خصم على ${num(live.length)} من ${num(pub.length)} منتج منشور${allSame?"":" — مش كلهم، يعني فيه خصومات فردية كمان"}.</div>`:""}
     <div class="row">
       <div class="field"><label>نسبة الخصم ٪</label>
-        <input id="gpct" type="number" min="1" max="90" value="${pct}"></div>
+        <input type="number" min="1" max="90" value="${esc(S.f.gpct || pct)}"
+               oninput="setF('gpct',this.value)"></div>
       <div class="field"><label>ينتهي في (اختياري)</label>
-        <input id="gend" type="date" value="${ends}">
+        <input type="date" value="${esc(S.f.gend || ends)}" oninput="setF('gend',this.value)">
         <p class="hint">سيبها فاضية = مستمر لحد ما توقفه بنفسك.</p></div>
     </div>
     <div class="actions">
@@ -620,9 +629,12 @@ function offersTab(){
     <h2>خصم على تصنيف</h2>
     <div class="row">
       <div class="field"><label>التصنيف</label>
-        <select id="dcat">${(S.data.categories||[]).filter(Boolean).map(c=>`<option>${esc(c)}</option>`).join("")}</select></div>
-      <div class="field"><label>النسبة ٪</label><input id="dpct" type="number" min="1" max="90"></div>
-      <div class="field"><label>ينتهي في</label><input id="dend" type="date"></div>
+        <select onchange="setF('dcat',this.value)">${(S.data.categories||[]).filter(Boolean)
+          .map(c=>`<option ${S.f.dcat===c?"selected":""}>${esc(c)}</option>`).join("")}</select></div>
+      <div class="field"><label>النسبة ٪</label>
+        <input type="number" min="1" max="90" value="${esc(S.f.dpct)}" oninput="setF('dpct',this.value)"></div>
+      <div class="field"><label>ينتهي في</label>
+        <input type="date" value="${esc(S.f.dend)}" oninput="setF('dend',this.value)"></div>
     </div>
     <div class="actions">
       <button class="btn-primary" onclick="applyCat()">طبّق</button>
@@ -634,8 +646,10 @@ function offersTab(){
     <h2>خصم على منتجات مختارة</h2>
     ${picker(S.discSel,"toggleD","d")}
     <div class="row" style="margin-top:10px">
-      <div class="field"><label>النسبة ٪</label><input id="spct" type="number" min="1" max="90"></div>
-      <div class="field"><label>ينتهي في</label><input id="send" type="date"></div>
+      <div class="field"><label>النسبة ٪</label>
+        <input type="number" min="1" max="90" value="${esc(S.f.spct)}" oninput="setF('spct',this.value)"></div>
+      <div class="field"><label>ينتهي في</label>
+        <input type="date" value="${esc(S.f.send)}" oninput="setF('send',this.value)"></div>
     </div>
     <div class="actions">
       <button class="btn-primary" onclick="applySel()" ${S.discSel.length?"":"disabled"}>طبّق على ${num(S.discSel.length)} منتج</button>
@@ -648,12 +662,13 @@ function offersTab(){
 }
 
 async function applyGlobal(){
-  const pct=Number($("#gpct").value), end=$("#gend").value;
+  const pct=Number(S.f.gpct), end=S.f.gend;
   if(!pct||pct<1||pct>90) return toast("اكتب نسبة بين ١ و ٩٠", true);
   await guard(async()=>{
     const r=await rpc("shop_fn_set_global_discount",{p_percent:pct,
       p_starts_at:new Date().toISOString(),
       p_ends_at:end?new Date(end+"T23:59:59").toISOString():null,p_published_only:true});
+    S.f.gpct=""; S.f.gend="";
     toast(`الخصم اتطبّق على ${num(r.updated)} منتج ✓`);
   });
 }
@@ -663,7 +678,8 @@ async function clearGlobal(){
     toast(`الخصم اتشال عن ${num(r.updated)} منتج ✓`); });
 }
 async function applyCat(){
-  const cat=$("#dcat").value, pct=Number($("#dpct").value), end=$("#dend").value;
+  const cat=S.f.dcat || (S.data.categories||[]).filter(Boolean)[0], pct=Number(S.f.dpct), end=S.f.dend;
+  if(!cat) return toast("مفيش تصنيفات", true);
   if(!pct||pct<1||pct>90) return toast("اكتب نسبة بين ١ و ٩٠", true);
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",
     {p_category:cat,p_percent:pct,p_starts_at:new Date().toISOString(),
@@ -671,14 +687,15 @@ async function applyCat(){
     toast(`اتطبّق على ${num(r.updated)} منتج ✓`); });
 }
 async function clearCat(){
-  const cat=$("#dcat").value;
+  const cat=S.f.dcat || (S.data.categories||[]).filter(Boolean)[0];
+  if(!cat) return toast("مفيش تصنيفات", true);
   if(!confirm(`تشيل الخصم عن كل منتجات «${cat}»؟`)) return;
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",{p_category:cat,p_percent:null});
     toast(`اتشال عن ${num(r.updated)} منتج ✓`); });
 }
 function toggleD(id){ const i=S.discSel.indexOf(id); i>=0?S.discSel.splice(i,1):S.discSel.push(id); render(); }
 async function applySel(){
-  const pct=Number($("#spct").value), end=$("#send").value;
+  const pct=Number(S.f.spct), end=S.f.send;
   if(!pct||pct<1||pct>90) return toast("اكتب نسبة بين ١ و ٩٠", true);
   await guard(async()=>{ const r=await rpc("shop_fn_set_discount",
     {p_product_ids:S.discSel,p_percent:pct,p_starts_at:new Date().toISOString(),
@@ -866,7 +883,8 @@ function shippingTab(){
     ${off?`<div class="note">${num(off)} محافظة مقفولة — العميلة فيها مش هتقدر تطلب.</div>`:""}
     <div class="row" style="margin:10px 0">
       <div class="field" style="margin:0"><label>عدّل كل الأسعار مرة واحدة</label>
-        <input id="bulkprice" type="number" placeholder="سعر موحّد لكل المحافظات"></div>
+        <input type="number" placeholder="سعر موحّد لكل المحافظات"
+               value="${esc(S.f.bulkprice)}" oninput="setF('bulkprice',this.value)"></div>
       <div style="flex:0 0 auto;align-self:flex-end">
         <button class="btn-ghost" onclick="bulkPrice()">طبّق على الكل</button></div>
     </div>
@@ -909,8 +927,9 @@ function shipBar(){
 }
 function discardShip(){ S.ship = clone(S.data.shipping); delete S.dirty.ship; render(); }
 function bulkPrice(){
-  const v=Number($("#bulkprice").value);
-  if(!v && v!==0) return toast("اكتب سعر", true);
+  const v=Number(S.f.bulkprice);
+  if(S.f.bulkprice==="" || Number.isNaN(v)) return toast("اكتب سعر", true);
+  if(v<0) return toast("السعر ما ينفعش يكون بالسالب", true);
   S.ship.forEach(r=>r.price=v); S.dirty.ship=true; render();
   toast("اتغيّر مؤقتًا — اضغط احفظ عشان يظهر على الموقع");
 }

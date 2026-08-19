@@ -81,8 +81,21 @@
   .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--brand);
         border-radius:99px;animation:sp .7s linear infinite;margin:0 auto 12px}
   @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* أهداف اللمس على الموبايل: التصميم اتعمل للماوس على شاشة كبيرة،
+     ودلوقتي بقى تطبيق على الموبايل. توصية آبل ٤٤ بكسل للإصبع، وكان
+     فيه أزرار ٢٧ بكسل. الكثافة على الديسك توب بتفضل زي ما هي — الميديا
+     كويري دي للشاشات الصغيرة بس. */
+  @media (max-width: 700px){
+    button, .btn, .btn-sm, .btn-ghost, .btn-primary, .tab, .fchip, .chip-btn,
+    select, input[type="checkbox"], .opt, a.btn{ min-height:42px }
+    .btn-sm{ padding:9px 14px; font-size:13px }
+    .tab{ padding:10px 16px }
+    button, select, input, textarea{ font-size:16px }  /* أقل من ١٦ بيعمل زوم تلقائي على iOS */
+    .actions{ gap:10px }
+  }
 </style>
-<link rel="manifest" href="/omraa/manifest.webmanifest"/>
+<link rel="manifest" href="/omraa/manifest.json"/>
 <link rel="apple-touch-icon" href="/omraa/apple-touch-icon.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>

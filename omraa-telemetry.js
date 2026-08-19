@@ -93,3 +93,40 @@
     return p;
   };
 }catch(_){}})();
+
+
+/* === شريط «فيه تحديث» =============================================
+   الاستراتيجية network-first بتجيب أحدث كود عند كل **فتح** للصفحة. بس
+   إبراهيم بيسيب التطبيق مفتوح طول اليوم — يعني ممكن يفضل شغّال على
+   كود قديم لساعات. الـservice worker بيبعت إشارة أول ما نسخة جديدة
+   تشتغل، وبنعرض شريط بسيط بدل ما نعمل reload تحته وهو بيكتب. */
+(function(){try{
+  if(!("serviceWorker" in navigator) || window.__omraaUpd) return;
+  window.__omraaUpd = 1;
+  var shown = 0;
+  navigator.serviceWorker.addEventListener("message", function(e){
+    if(!e.data || e.data.type !== "sw-updated" || shown) return;
+    // أول تسجيل للـSW بيبعت نفس الإشارة — مش تحديث، فبنتجاهله
+    if(!navigator.serviceWorker.controller) return;
+    shown = 1;
+    var d = document.createElement("div");
+    d.setAttribute("dir","rtl");
+    d.style.cssText = "position:fixed;inset-inline:0;bottom:0;z-index:99998;background:#0f172a;"+
+      "color:#fff;padding:12px 14px calc(12px + env(safe-area-inset-bottom));"+
+      "font:14px/1.5 Alexandria,system-ui,sans-serif;display:flex;gap:10px;align-items:center;"+
+      "box-shadow:0 -4px 18px rgba(0,0,0,.3)";
+    d.innerHTML = '<span style="flex:1">فيه نسخة جديدة من النظام</span>';
+    var b = document.createElement("button");
+    b.textContent = "حدّث دلوقتي";
+    b.style.cssText = "border:0;border-radius:9px;padding:9px 16px;font:inherit;font-weight:700;"+
+      "background:#fff;color:#0f172a;cursor:pointer";
+    b.onclick = function(){ location.reload(); };
+    var x = document.createElement("button");
+    x.textContent = "بعدين";
+    x.setAttribute("aria-label","إخفاء");
+    x.style.cssText = "border:0;background:transparent;color:#94a3b8;font:inherit;cursor:pointer;padding:9px";
+    x.onclick = function(){ d.remove(); };
+    d.appendChild(b); d.appendChild(x);
+    (document.body||document.documentElement).appendChild(d);
+  });
+}catch(_){}})();

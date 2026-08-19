@@ -618,6 +618,10 @@ function Editor({ product, onClose, onChanged }) {
           p_product_id: product.id, p_path: fullPath,
           p_color: row.color && row.color !== GENERIC ? row.color : null,
           p_sizes: Object.keys(sizes).length ? sizes : null,
+          // الأصل الحقيقي للصورة على جهازك. الاسم ده بيتحفظ في النسخة
+          // الاحتياطية عشان لو التخزين ضاع، تعرف أنهي ملف يرجع لأنهي
+          // منتج ولون بدل ما تخمّن على مئات الملفات.
+          p_original_name: row.file.name,
         });
         if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
         results.push({ key: row.key, ok: true,

@@ -965,35 +965,66 @@ function backupBanner(){
   </div>`;
 }
 
-/* بطاقة دائمة في «نظرة عامة» — حتى وهي سليمة، عشان يشوف الأرقام
-   ويثق فيها بدل ما يفتكر إن مفيش نسخ. */
+/* بطاقة دائمة في «نظرة عامة» — بتعرض الطبقات كلها بأرقامها.
+   «إيه اللي بيحميني؟» لازم يبقى سؤال ليه إجابة مرئية، مش ثقة. */
 function backupCard(){
   const b = S.backup;
   if(!b) return "";
   const lvl = b.offsite_level;
   const when = (t) => t ? new Date(t).toLocaleDateString("ar-EG",
     {year:"numeric",month:"long",day:"numeric"}) : "—";
+  const verifyOk = b.verify && b.verify.ok;
+  const open = (b.issues||[]).filter(i => i.severity === "high");
+
+  const layer = (name, state, detail, cls, extra) => `
+    <div class="list-item">
+      <div class="grow"><div class="name">${name}</div><div class="meta">${detail}</div></div>
+      <span class="pill ${cls}">${state}</span>${extra||""}
+    </div>`;
+
   return `<div class="card">
-    <h2>النسخ الاحتياطي</h2>
-    <div class="list-item">
-      <div class="grow"><div class="name">النسخة التلقائية اليومية</div>
-        <div class="meta">آخر واحدة ${esc(when(b.last_snapshot))} · ${num(b.snapshot_tables)} جدول ·
-          ${num(b.total_rows)} صف · محفوظ ${num(b.snapshot_count)} نسخة</div></div>
-      <span class="pill ${b.coverage_ok?'on':'off'}">${b.coverage_ok?"كاملة":"ناقصة"}</span>
-    </div>
-    <div class="list-item">
-      <div class="grow"><div class="name">النسخة اللي على جهازك</div>
-        <div class="meta">${lvl==="never" ? "ولا مرة"
-          : `آخر واحدة ${esc(when(b.last_offsite))} · من ${num(Math.floor(b.offsite_days))} يوم`}</div></div>
-      <span class="pill ${lvl==="ok"?"on":lvl==="due"?"warn":"off"}">
-        ${lvl==="ok"?"حديثة":lvl==="due"?"وقتها":"متأخرة"}</span>
-      <button class="btn-ghost btn-sm" onclick="downloadBackup()" ${S.dl?"disabled":""}>
-        ${S.dl?"بيجهّز…":"نزّل"}</button>
-    </div>
-    ${b.coverage_ok?"":`<div class="note">النسخة اليومية غطّت ${num(b.snapshot_tables)} جدول من
-      ${num(b.expected_tables)} — فيه جدول مش بيتحفظ. بلّغني.</div>`}
-    <p class="hint">النسخة اليومية بتحميك من الغلط البشري. النسخة اللي بتنزّلها على جهازك
-      هي اللي بتحميك لو مشروع القاعدة نفسه ضاع — خليها كل أسبوع في مكانين.</p>
+    <h2>حماية البيانات</h2>
+    <p class="sub">أربع طبقات، كل واحدة بتغطّي حاجة التانية ما بتغطّهاش.</p>
+
+    ${layer("١ · التراجع عن غلطة",
+        b.cdc_since ? "شغّالة" : "—",
+        b.cdc_since ? `كل تعديل متسجّل من ${esc(when(b.cdc_since))} — ينفع يترجّع صف واحد`
+                    : "مفيش سجل تغييرات",
+        b.cdc_since ? "on" : "off")}
+
+    ${layer("٢ · الرجوع بالزمن",
+        b.coverage_ok ? "كاملة" : "ناقصة",
+        `${num(b.snapshot_count)} نسخة · بترجع لحد ${num(b.depth_days)} يوم ·
+         ${num(b.snapshot_tables)} من ${num(b.expected_tables)} جدول · ${num(b.total_rows)} صف`,
+        b.coverage_ok ? "on" : "off")}
+
+    ${layer("٣ · سلامة النسخة نفسها",
+        verifyOk ? "سليمة" : "فيها تلف",
+        verifyOk ? `اتراجعت البصمة على ${num((b.verify||{}).tables)} جدول — كلها مطابقة`
+                 : "أحدث نسخة بصمتها مختلفة — بلّغني فورًا",
+        verifyOk ? "on" : "off")}
+
+    ${layer("٤ · نسخة برّه المشروع",
+        lvl==="ok" ? "حديثة" : lvl==="due" ? "وقتها" : lvl==="never" ? "ولا مرة" : "متأخرة",
+        lvl==="never" ? "الطبقات اللي فوق كلها جوّه نفس القاعدة — دي الوحيدة اللي بتحميك لو المشروع ضاع"
+          : `آخر واحدة ${esc(when(b.last_offsite))} · من ${num(Math.floor(b.offsite_days))} يوم`,
+        lvl==="ok" ? "on" : lvl==="due" ? "warn" : "off",
+        `<button class="btn-ghost btn-sm" onclick="downloadBackup()" ${S.dl?"disabled":""}>
+          ${S.dl?"بيجهّز…":"نزّل"}</button>`)}
+
+    <h3>الصور</h3>
+    ${layer("صور المنتجات",
+        b.photos === 0 ? "مفيش صور" : (b.photos === b.photos_mapped ? "متتبّعة" : "ناقصة"),
+        b.photos === 0 ? "لسه ما اترفعش أي صورة"
+          : `${num(b.photos_mapped)} من ${num(b.photos)} صورة متسجّل اسم ملفها الأصلي —
+             الأصول على جهازك، والخريطة دي بتخلّي إعادة الرفع ميكانيكية لو التخزين ضاع`,
+        b.photos === 0 ? "" : (b.photos === b.photos_mapped ? "on" : "warn"))}
+
+    ${b.rpo_hours != null ? `<p class="hint">
+      لو القاعدة راحت دلوقتي، أقصى شغل ممكن يضيع = ${num(Math.round(b.rpo_hours))} ساعة
+      (آخر نسخة تلقائية). النسخة بتتاخد كل يوم ٢ الفجر.</p>` : ""}
+
+    ${open.length ? `<div class="note">${open.map(i=>esc(i.detail)).join(" · ")}</div>` : ""}
   </div>`;
 }
 

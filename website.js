@@ -933,6 +933,9 @@ const TABS = [
 ];
 
 function go(tab, filter){
+  // مسح الهاش: لولاه، الرجوع/إعادة التحميل هيرجّعه للفلتر القديم
+  // replaceState بيرمي لو اتنادى كتير أو في سياق مقيّد — التنقل أهم منه
+  try{ if(location.hash) history.replaceState(null,"",location.pathname+location.search); }catch(e){}
   S.tab=tab; if(filter) S.pfilter=filter; S.psel=[]; render();
   window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -1065,8 +1068,23 @@ function render(){
 }
 
 /* أمان: تحذير قبل الخروج ومعاه تعديلات ما اتحفظتش */
+/* لينك عميق من لوحة التحكم: #products/nodesc بيفتح تاب المنتجات على
+   فلتر «من غير وصف» على طول. من غير ده الملاحظة بتوصّله للصفحة
+   وسايباه يدوّر على الفلتر بنفسه. */
+function applyHash(){
+  const h = decodeURIComponent(String(location.hash||"").replace(/^#/,""));
+  if(!h) return;
+  const [tab, filter] = h.split("/");
+  if(!TABS.some(([k])=>k===tab)) return;
+  S.tab = tab;
+  if(filter) S.pfilter = filter;
+  S.psel = [];
+}
+window.addEventListener("hashchange", ()=>{ applyHash(); render(); });
+
 window.addEventListener("beforeunload", e=>{
   if(Object.keys(S.dirty).length){ e.preventDefault(); e.returnValue=""; }  // يشمل الشحن
 });
 
+applyHash();
 load(true);

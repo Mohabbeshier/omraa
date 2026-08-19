@@ -1077,3 +1077,46 @@ select coalesce(
 الطبقات ١–٣ كلها جوّه نفس القاعدة. الطبقة ٤ يدوية بطبيعتها — تحميل ملف
 على جهاز المالك مستحيل يتنفّذ من السيرفر. الحارس بينبّه بعد ٧ أيام،
 واللافتة بتنزّل بضغطة.
+
+---
+
+## ✅ ملاحظات لوحة التحكم بقت توصّل لمكان الإصلاح (٢٠٢٦-٠٨-١٩)
+
+الملاحظات كانت بتقول «٢٩ منتج منشور بدون أي صورة» وتسيبه يدوّر على
+المكان بنفسه. كان فيه استثناء واحد متزرّع: `ACTIVE_NO_COST` بس هو
+اللي ليه زرار.
+
+**الوجهة بتتحدّد في القاعدة، مش في الواجهة** — `pos_backup.issue_destination(code)`.
+`pos_fn_integrity_check` بيلفّ على الملاحظات ويضيف لكل واحدة
+`href` و`action_label`، و`focus_id` للفحوص اللي بتخص منتج بعينه
+(بيتحط في `products_edit_pid` فتفتح على المنتج نفسه مش على قايمة ١٦١).
+
+**ليه في القاعدة:** أي فحص جديد بعد كده يجيب لينكه معاه من غير ما نلمس
+شانك المتصفح تاني — وجراحة الشانكات دي أخطر خطوة في الريبو ده.
+
+الخريطة الحالية:
+
+| الكود | الوجهة |
+|---|---|
+| `PUBLISHED_NO_IMAGE` | `photos.html` |
+| `PUBLISHED_NO_DESCRIPTION` | `website.html#products/nodesc` |
+| `PLACEHOLDER_COLOR` · `ACTIVE_NO_COST` | `/products` + المنتج محدد |
+| `DUP_BARCODE` | `/labels` |
+| `SHIPMENT_ABANDONED` | `/orders` |
+| `ITEM_NO_IN_MOVEMENT` | `/inventory` |
+| `EMPTY_SALE` | `/accounting` |
+| `LOW_STOCK_ALERT_SATURATED` | `/settings` (الحد نفسه إعداد، مش مخزون) |
+| `STALE_OFFSITE` · `BACKUP_*` | `website.html` / `/backup` |
+
+### جراحة الشانك
+`_next/static/chunks/app/(app)/dashboard/page-0b4c2df091d1dc3b-v3.js`:
+الشرط `"ACTIVE_NO_COST"===it.code&&it.ids...` اتبدّل بـ`it.href&&...`،
+والزرار بقى بيقرا `it.href` و`it.action_label` و`it.focus_id`.
+`localStorage.setItem` اتلفّ في `try` — التصفح الخفي مكان هيكسر الزرار.
+ملاحظة بلا `href` (فحص جديد لسه مش متخطّط له) ما بتعرضش زرار مكسور.
+
+### لينك عميق في مركز التحكم
+`website.js` بقى فيه `applyHash()`: `#<tab>/<filter>` بيفتح التاب
+والفلتر على طول، مع `hashchange`. `go()` بيمسح الهاش بـ`replaceState`
+(داخل `try`) — من غير كده الرجوع أو إعادة التحميل بيرجّع الفلتر القديم.
+هاش غلط بيتجاهل ويرجع للتاب الافتراضي.

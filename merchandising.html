@@ -82,6 +82,12 @@
         border-radius:99px;animation:sp .7s linear infinite;margin:0 auto 12px}
   @keyframes sp{to{transform:rotate(360deg)}}
 </style>
+<link rel="manifest" href="/omraa/manifest.webmanifest"/>
+<link rel="apple-touch-icon" href="/omraa/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="الأمراء"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 </head>
 <body>
 <div class="wrap">
@@ -526,6 +532,12 @@ async function delB(id,name){
 }
 
 load();
+</script>
+<script>
+/* نفس تسجيل الـservice worker اللي في صفحات النظام — من غيره الصفحات
+   دي بتفضل برّه الكاش الاحتياطي لو النت فصل جوّه المحل. */
+if("serviceWorker" in navigator){window.addEventListener("load",function(){
+  navigator.serviceWorker.register("/omraa/sw.js").catch(function(){});});}
 </script>
 </body>
 </html>

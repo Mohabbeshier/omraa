@@ -148,6 +148,12 @@
        padding:10px 12px;font-size:12.5px;margin-bottom:14px;line-height:1.7}
 
 </style>
+<link rel="manifest" href="/omraa/manifest.webmanifest"/>
+<link rel="apple-touch-icon" href="/omraa/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="الأمراء"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 </head>
 <body>
 <div class="wrap">
@@ -1006,6 +1012,12 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+</script>
+<script>
+/* نفس تسجيل الـservice worker اللي في صفحات النظام — من غيره الصفحات
+   دي بتفضل برّه الكاش الاحتياطي لو النت فصل جوّه المحل. */
+if("serviceWorker" in navigator){window.addEventListener("load",function(){
+  navigator.serviceWorker.register("/omraa/sw.js").catch(function(){});});}
 </script>
 </body>
 </html>

@@ -1,1 +1,85 @@
-{"name":"الأمراء | نظام إدارة المتجر","short_name":"الأمراء","description":"نظام نقطة بيع وإدارة مخزون متجر الأمراء","start_url":"/dashboard","display":"standalone","background_color":"#f8fafc","theme_color":"#4f46e5","lang":"ar","dir":"rtl","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "id": "/omraa/",
+  "name": "الأمراء | نظام إدارة المتجر",
+  "short_name": "الأمراء",
+  "description": "نقطة بيع وإدارة مخزون وشحن متجر الأمراء",
+  "start_url": "/omraa/dashboard.html",
+  "scope": "/omraa/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/omraa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/omraa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/omraa/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/omraa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/omraa/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "بيع جديد",
+      "short_name": "بيع",
+      "url": "/omraa/pos.html",
+      "icons": [
+        {
+          "src": "/omraa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "الشحن والتحصيل",
+      "short_name": "الشحن",
+      "url": "/omraa/shipping.html",
+      "icons": [
+        {
+          "src": "/omraa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "صور المنتجات",
+      "short_name": "الصور",
+      "url": "/omraa/photos.html",
+      "icons": [
+        {
+          "src": "/omraa/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

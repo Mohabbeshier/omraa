@@ -5,8 +5,30 @@
   var SB="https://mjetglnmivwphxyzflsz.supabase.co",REF="mjetglnmivwphxyzflsz";
   var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
   var RPC=SB+"/rest/v1/rpc/pos_fn_log_client_error",QKEY="omraa_err_queue",MAXQ=50;
-  function token(){try{var raw=localStorage.getItem("sb-"+REF+"-auth-token");if(!raw)return null;
-    var j=JSON.parse(raw);return j.access_token||(j.currentSession&&j.currentSession.access_token)||(Array.isArray(j)&&j[0])||null;}catch(_){return null;}}
+  /* الجلسة في **كوكي** مش localStorage (@supabase/ssr): ممكن تكون مقسّمة
+     على أجزاء ومكوّدة base64url. القراءة القديمة كانت بترجع null دايمًا،
+     يعني كل خطأ كان بيتحط في طابور محلي وما يوصلش أبدًا — وده سبب إن
+     pos.omraa_error_log فاضي رغم إن النظام شغّال يوميًا. */
+  function b64t(x){try{var pad=x.length%4?new Array(5-x.length%4).join("="):"";
+    var bin=atob(x.replace(/-/g,"+").replace(/_/g,"/")+pad);
+    var b=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);
+    return new TextDecoder().decode(b);}catch(_){return null;}}
+  function cookieVal(name){try{var jar={},p=String(document.cookie||"").split(";");
+    for(var i=0;i<p.length;i++){var q=p[i].indexOf("=");if(q<0)continue;jar[p[i].slice(0,q).trim()]=p[i].slice(q+1);}
+    if(jar[name]!==undefined)return jar[name];
+    var out="",n=0;while(jar[name+"."+n]!==undefined){out+=jar[name+"."+n];n++;}
+    return n?out:null;}catch(_){return null;}}
+  function parseSess(raw){if(!raw)return null;var v=raw;
+    try{v=decodeURIComponent(v);}catch(_){}
+    if(v.indexOf("base64-")===0){v=b64t(v.slice(7));if(!v)return null;}
+    var j;try{j=JSON.parse(v);}catch(_){return null;}
+    if(Array.isArray(j))return j[0]||null;
+    if(j&&j.currentSession)j=j.currentSession;
+    return (j&&j.access_token)||null;}
+  function token(){
+    var t=parseSess(cookieVal("sb-"+REF+"-auth-token"));
+    if(t)return t;
+    try{return parseSess(localStorage.getItem("sb-"+REF+"-auth-token"));}catch(_){return null;}}
   function appVersion(){try{var s=document.querySelector('script[src*="/page-"]');if(!s)return null;
     var m=/([\w()-]+\/page-[\w-]+)\.js/.exec(s.src);return m?m[1].slice(-60):null;}catch(_){return null;}}
   function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]");}catch(_){return[];}}

@@ -67,6 +67,13 @@ const RPC = {
   shop_fn_save_bundle: () => ({ ok: true }),
   shop_fn_delete_bundle: () => ({ ok: true }),
   shop_fn_moderate_review: () => ({ ok: true }),
+  pos_fn_shipments: () => ({ ok: true, shipments: [{ id: "sh1", customer: "عميلة", phone: "0100",
+    address: "عنوان", cod: 500, total: 500, status: "preparing", status_label: "تحت التجهيز للشحن",
+    money: "waiting", money_label: "لسه معلقة", courier: "RO.R", sale_code: "INV-1",
+    created_at: new Date().toISOString(), stage: 1 }] }),
+  pos_fn_update_shipment: () => ({ ok: true }),
+  pos_fn_bulk_ship_update: () => ({ ok: true, updated: 1, failed: [] }),
+  pos_fn_settle_money: () => ({ ok: true, count: 1, expected: 500, received: 500, diff: 0 }),
   shop_fn_admin_merch: () => ({ products: [{ id: PID, name: "صندل", category: "كلاسيك",
       sell_price: 900, discount_percent: null, live_pct: 0, price: 900, is_published: true }],
     collections: [], bundles: [], categories: ["كلاسيك"] }),
@@ -179,7 +186,7 @@ async function clickEverything(w, errors, label) {
 
 (async () => {
   let fail = 0;
-  for (const file of ["website.html", "photos.html", "merchandising.html"]) {
+  for (const file of ["website.html", "photos.html", "merchandising.html", "shipping.html"]) {
     console.log(`\n━━ ${file} ━━`);
     const { w, errors, calls } = bootPage(file);
     await sleep(300);
@@ -202,7 +209,8 @@ async function clickEverything(w, errors, label) {
     let clicked = 0, changed = 0;
     const tabs = file === "website.html"
       ? ["home","content","products","offers","shipping","settings","reviews"]
-      : file === "merchandising.html" ? ["collections","discounts","bundles"] : [null];
+      : file === "merchandising.html" ? ["collections","discounts","bundles"]
+      : file === "shipping.html" ? ["todo","out","money","done"] : [null];
     for (const t of tabs) {
       if (t) { try { w.eval(`typeof go==='function' && go(${JSON.stringify(t)})`); } catch (e) {} await sleep(40); }
       const r = await clickEverything(w, errors, `${file}#${t || "-"}`);

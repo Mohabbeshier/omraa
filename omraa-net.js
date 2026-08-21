@@ -429,6 +429,27 @@
       html += '<button id="omraa-flush" style="border:0;border-radius:9px;padding:9px 14px;' +
         'font:inherit;font-weight:700;background:#0f172a;color:#fff;cursor:pointer">ابعتهم دلوقتي</button>';
     }
+    /* ⑳ وضع الطوارئ: النت مقطوع؟ وريه أرقام الفواتير المحجوزة عشان
+       يكتب البيعة على ورق برقم مضمون مش هيتكرر، ويدخلها بعدين. */
+    if (!state.online) {
+      var free = reservedCodes().filter(function (c) { return !c.used; });
+      html += '<div style="margin-top:12px;padding-top:10px;border-top:1px solid #e2e8f0">' +
+        '<div style="font-weight:700;margin-bottom:6px">وضع الطوارئ</div>';
+      if (free.length) {
+        html += '<div style="font-size:12px;color:#475569;margin-bottom:6px">' +
+          'اكتب البيعة على ورق بالرقم ده، وسجّلها في النظام لما النت يرجع:</div>' +
+          '<div style="font:700 18px/1.5 ui-monospace,monospace;color:#0f172a;' +
+          'background:#f1f5f9;border-radius:8px;padding:8px;text-align:center">' +
+          esc(free[0].code) + '</div>' +
+          '<div style="font-size:11px;color:#64748b;margin-top:4px">' +
+          'عندك ' + free.length + ' رقم محجوز</div>';
+      } else {
+        html += '<div style="font-size:12px;color:#b45309">مفيش أرقام محجوزة — ' +
+          'هتتحجز تلقائيًا أول ما النت يرجع.</div>';
+      }
+      html += '</div>';
+    }
+
     html += '<button id="omraa-close" style="border:0;background:transparent;color:#64748b;' +
       'font:inherit;cursor:pointer;padding:8px;float:left">إغلاق</button>';
     panel.innerHTML = html;
@@ -442,6 +463,45 @@
     });
   }
 
+  /* ═══════════ ⑲ تحذير آخر قطعة + ⑳ وضع الطوارئ ═══════════ */
+
+  /* آخر قطعة: لو النت متقطّع أو مقطوع، القطعة الأخيرة أخطر حاجة —
+     ممكن حد تاني يكون خدها ولسه ما وصلناش الخبر. */
+  function lastItemRisk(inStock) {
+    if (inStock == null || inStock > 1) return null;
+    if (state.online && state.quality === 'good' && !state.cautious) return null;
+    return inStock <= 0
+      ? 'القطعة دي نفدت حسب آخر نسخة عندك — والنت مش مستقر، أكّد قبل ما تبيع'
+      : 'دي آخر قطعة، والنت مش مستقر — ممكن حد يكون أخدها';
+  }
+
+  /* وضع الطوارئ: النت وقع خالص. بنحجز أكواد فواتير من السيرفر وقت ما
+     يكون شغّال، فيفضل عنده أرقام مضمونة يكتب عليها ورق. */
+  function reservedCodes() { return read(LS.codes, []); }
+  function topUpCodes(n) {
+    if (!token()) return Promise.resolve([]);
+    return rpc('pos_fn_reserve_codes', { p_count: n || 5 }, { retries: 1 })
+      .then(function (r) {
+        if (!r || r.ok === false || !r.codes) return [];
+        var have = reservedCodes();
+        var add = r.codes.map(function (c) { return { code: c, at: Date.now(), used: false }; });
+        write(LS.codes, have.concat(add));
+        return r.codes;
+      }).catch(function () { return []; });
+  }
+  function useCode() {
+    var list = reservedCodes();
+    for (var i = 0; i < list.length; i++) {
+      if (!list[i].used) { list[i].used = true; write(LS.codes, list); return list[i].code; }
+    }
+    return null;
+  }
+  /* لما النت يبقى كويس، نتأكد إن عنده رصيد أكواد للطوارئ */
+  function ensureCodes() {
+    var free = reservedCodes().filter(function (c) { return !c.used; }).length;
+    if (state.online && state.quality === 'good' && free < 3) topUpCodes(5);
+  }
+
   /* ═══════════ التشغيل ═══════════ */
   function start() {
     paintBadge();
@@ -453,6 +513,8 @@
       if (document.visibilityState === 'visible') ping().then(flush);
     });
     setTimeout(flush, 2500);                  // ابعت أي معلّق من جلسة فاتت
+    setTimeout(ensureCodes, 6000);            // جهّز أكواد طوارئ وقت النت الكويس
+    setInterval(ensureCodes, 300000);
   }
   if (document.readyState === 'loading')
     document.addEventListener('DOMContentLoaded', start);
@@ -477,6 +539,9 @@
     saveDraft: saveDraft, loadDraft: loadDraft, clearDraft: clearDraft,
     // الكتالوج
     cacheCatalog: cacheCatalog, getCatalog: getCatalog, lookupBarcode: lookupBarcode,
+    // الطوارئ وآخر قطعة
+    lastItemRisk: lastItemRisk, reservedCodes: reservedCodes,
+    topUpCodes: topUpCodes, useCode: useCode, ensureCodes: ensureCodes,
     // داخلي للاختبار
     _read: read, _write: write, _keys: LS,
   };

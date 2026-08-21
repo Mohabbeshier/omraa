@@ -215,6 +215,43 @@ const visible = (w) => {
     must(typeof w.OmraaNet === 'object', 'والوحدة لسه شغّالة');
   }
 
+
+  console.log('\n━━ ١٤. تحذير آخر قطعة ━━');
+  {
+    const { N } = boot({ fetch: () => Promise.resolve({ ok: true, status: 200 }) });
+    await T(250);
+    must(N().lastItemRisk(5) === null, 'مخزون وفير: مفيش تحذير');
+    must(N().lastItemRisk(1) === null, 'آخر قطعة + النت كويس: مفيش تحذير (منزعّجش بلا داعي)');
+  }
+  {
+    const { N } = boot({ fetch: () => Promise.reject(new TypeError('Failed to fetch')) });
+    await T(300);
+    const w1 = N().lastItemRisk(1);
+    must(w1 && /آخر قطعة/.test(w1), `آخر قطعة + نت مقطوع: فيه تحذير (${w1})`);
+    const w0 = N().lastItemRisk(0);
+    must(w0 && /نفدت/.test(w0), 'نفدت + نت مقطوع: تحذير أقوى');
+    must(N().lastItemRisk(9) === null, 'مخزون وفير: مفيش تحذير حتى لو النت مقطوع');
+  }
+
+  console.log('\n━━ ١٥. وضع الطوارئ: أكواد محجوزة ━━');
+  {
+    const { N } = boot({ fetch: (url) => {
+      if (url.includes('pos_fn_reserve_codes'))
+        return Promise.resolve({ ok: true, status: 200,
+          json: async () => ({ ok: true, codes: ['INV-000401', 'INV-000402'] }) });
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({}) });
+    } });
+    await T(250);
+    const got = await N().topUpCodes(2);
+    must(got.length === 2, 'اتحجزوا كودين من السيرفر');
+    must(N().reservedCodes().length === 2, 'واتخزنوا محليًا للطوارئ');
+    const c1 = N().useCode();
+    must(c1 === 'INV-000401', `أول كود اتاخد (${c1})`);
+    const c2 = N().useCode();
+    must(c2 === 'INV-000402', 'والتاني بعده');
+    must(N().useCode() === null, 'خلصوا: بيرجّع null مش كود مكرر');
+  }
+
   console.log(fail ? `\n🔴 ${pass} نجح · ${fail} فشل\n` : `\n✅ ${pass} فحص نجح\n`);
   process.exit(fail ? 1 : 0);
 })();

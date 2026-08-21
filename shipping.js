@@ -305,7 +305,24 @@ async function guard(fn){
 
 async function advance(id, status){
   await guard(async ()=>{
-    const r = await rpc("pos_fn_update_shipment",{p_shipment:id, p_status:status});
+    /* مفتاح عدم التكرار بيتولّد **قبل** الإرسال: لو النت قطع بعد ما
+       الطلب وصل السيرفر وقبل ما الرد يرجع، إعادة الإرسال بنفس المفتاح
+       بترجّع نفس النتيجة بدل ما تسجّل الحدث مرتين. */
+    const key = (window.OmraaNet ? OmraaNet.newKey("ship") : null);
+    const body = {p_shipment:id, p_status:status};
+    if(key) body.p_idem_key = key;
+
+    /* النت مقطوع؟ العملية دي تقدر تستنى (مش بيع، مش محتاجة مخزون حي).
+       بتتحفظ بمفتاحها وتتبعت لوحدها أول ما النت يرجع. */
+    if(window.OmraaNet && !OmraaNet.isOnline()){
+      const sh = S.rows.find(r=>r.id===id);
+      OmraaNet.enqueue("pos_fn_update_shipment", body,
+        `${NEXT_LABEL[sh && sh.status] || "تحديث شحنة"}${sh ? " — "+sh.customer : ""}`);
+      toast("مفيش نت — اتحفظت وهتتبعت أول ما يرجع");
+      return;
+    }
+
+    const r = await rpc("pos_fn_update_shipment", body);
     if(!r || r.ok===false) throw new Error(errText(r));
     toast("اتسجّل ✓");
   });
@@ -345,7 +362,18 @@ async function confirmMoney(){
   const ids=[...sh.ids];
   S.sheet=null; renderSheet();
   await guard(async ()=>{
-    const r = await rpc("pos_fn_settle_money",{p_ids:ids, p_received:got});
+    const key = (window.OmraaNet ? OmraaNet.newKey("settle") : null);
+    const body = {p_ids:ids, p_received:got};
+    if(key) body.p_idem_key = key;
+
+    if(window.OmraaNet && !OmraaNet.isOnline()){
+      OmraaNet.enqueue("pos_fn_settle_money", body, `تحصيل ${money(got)}`);
+      S.sel=[];
+      toast("مفيش نت — التحصيل اتحفظ وهيتبعت أول ما يرجع");
+      return;
+    }
+
+    const r = await rpc("pos_fn_settle_money", body);
     if(!r || r.ok===false) throw new Error(errText(r));
     S.sel=[];
     const diff = Number(r.diff||0);

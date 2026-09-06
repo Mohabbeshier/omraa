@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>المرتجعات — الأمراء</title>
+<link rel="icon" href="icon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
+    --brand:#4f46e5; --ok:#16a34a; --warn:#b45309; --danger:#dc2626;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:Alexandria,system-ui,sans-serif;font-size:15px;line-height:1.6;
+       padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+
+  header.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);
+       padding:12px 14px;box-shadow:0 1px 6px rgba(15,23,42,.05)}
+  .hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  h1{font-size:18px;margin:0;font-weight:700}
+  a.back{color:var(--brand);font-size:13px;text-decoration:none;white-space:nowrap}
+  .role{font-size:12px;color:var(--muted);margin-top:4px}
+  .role b{color:var(--ink)}
+
+  .wrap{padding:12px 12px 0;max-width:760px;margin:0 auto}
+
+  .search{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+       font:inherit;font-size:16px;background:#fff}
+  .hint{font-size:12.5px;color:var(--muted);margin:7px 2px 12px}
+
+  .btn{border:0;border-radius:12px;padding:13px 16px;font:inherit;font-weight:700;
+       font-size:15px;cursor:pointer;min-height:48px}
+  .btn-primary{background:var(--ink);color:#fff;width:100%}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+  /* كل قطعة مرشحة: الموظف لازم يشوف الفاتورة والعميلة قبل ما يختار */
+  .cand{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:13px 14px;margin-bottom:10px}
+  .cand.expired{border-color:#fdba74;background:#fffbf5}
+  .c-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .c-prod{font-weight:700;font-size:15.5px}
+  .c-meta{font-size:13px;color:var(--muted);margin-top:2px}
+  .c-price{font-weight:700;white-space:nowrap}
+  .c-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;font-size:12.5px;color:var(--muted)}
+  .chip{background:#f8fafc;border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+  .chip.warn{background:#fff7ed;border-color:#fdba74;color:var(--warn)}
+  .cand .btn{margin-top:11px;width:100%}
+
+  .empty{text-align:center;color:var(--muted);padding:34px 12px;font-size:14px}
+  .msg{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px}
+  .msg.err{background:#fef2f2;border:1px solid #fecaca;color:var(--danger)}
+  .msg.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+
+  /* نتيجة المرتجع: الـ٦ فحوصات تتعرض عشان الموظف يشوف بعينه إن القطعة رجعت */
+  .result{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .result h2{margin:0 0 4px;font-size:16px}
+  .refund{font-size:22px;font-weight:700;color:var(--ok);margin:6px 0 12px}
+  .checks{display:grid;gap:7px}
+  .chk{display:flex;align-items:center;gap:9px;font-size:13.5px}
+  .chk i{width:20px;height:20px;border-radius:99px;display:grid;place-items:center;
+         font-style:normal;font-size:12px;font-weight:700;flex:0 0 auto}
+  .chk.pass i{background:#dcfce7;color:#166534}
+  .chk.fail i{background:#fee2e2;color:var(--danger)}
+  .chk.fail{color:var(--danger);font-weight:600}
+
+  .modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:grid;place-items:center;
+         padding:16px;z-index:50}
+  .modal[hidden]{display:none}
+  .sheet{background:#fff;border-radius:16px;padding:16px;max-width:420px;width:100%}
+  .sheet h3{margin:0 0 8px;font-size:16px}
+  .sheet p{margin:0 0 12px;font-size:14px;color:var(--muted)}
+  .sheet input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+               font:inherit;margin-bottom:12px}
+  .sheet .row{display:flex;gap:8px}
+  .sheet .row .btn{flex:1}
+  .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);
+        border-top-color:#fff;border-radius:99px;animation:sp .7s linear infinite;vertical-align:-2px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="hrow">
+    <div>
+      <h1>المرتجعات</h1>
+      <div class="role" id="role">—</div>
+    </div>
+    <a class="back" href="index.html">رجوع للرئيسية</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="msg"></div>
+
+  <input id="q" class="search" inputmode="search" autocomplete="off"
+         placeholder="امسحي الباركود، أو رقم الفاتورة، أو موبايل العميلة، أو اسمها…">
+  <div class="hint">
+    الباركود بيمسك الموديل والمقاس واللون — مش القطعة بعينها. لو نفس الموديل
+    اتباع لأكتر من عميلة، دوّري برقم الفاتورة أو الموبايل عشان ترجّعي القطعة الصح.
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<div class="modal" id="ask" hidden>
+  <div class="sheet">
+    <h3>سبب الإرجاع</h3>
+    <p id="askWhat"></p>
+    <input id="reason" placeholder="مثال: مقاس غير مناسب" autocomplete="off">
+    <div class="row">
+      <button class="btn btn-ghost" id="askNo">إلغاء</button>
+      <button class="btn btn-primary" id="askYes">تأكيد الإرجاع</button>
+    </div>
+  </div>
+</div>
+
+<script src="omraa-telemetry.js"></script><script src="omraa-net.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+
+  var q = document.getElementById("q");
+  var out = document.getElementById("out");
+  var msgBox = document.getElementById("msg");
+  var roleEl = document.getElementById("role");
+  var ask = document.getElementById("ask");
+  var askWhat = document.getElementById("askWhat");
+  var reasonIn = document.getElementById("reason");
+
+  var isOwner = false;
+  var windowDays = null;
+  var pending = null;     // القطعة اللي بننتظر تأكيد إرجاعها
+  var busy = false;
+  var seq = 0;            // عشان رد قديم ما يكتبش فوق نتيجة أحدث
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function money(n) {
+    var v = Number(n || 0);
+    return v.toLocaleString("ar-EG", { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + " ج.م";
+  }
+  function note(kind, text) {
+    msgBox.innerHTML = '<div class="msg ' + kind + '">' + esc(text) + "</div>";
+  }
+  function clearNote() { msgBox.innerHTML = ""; }
+
+  /* نستخدم طبقة الشبكة الموجودة: هي اللي بتتعامل مع الجلسة وقطع النت
+     وإعادة المحاولة — مش عايزين نسخة تانية من نفس المنطق هنا. */
+  function rpc(fn, args, opts) {
+    if (!window.OmraaNet) return Promise.reject(new Error("طبقة الشبكة مش متحمّلة — حدّثي الصفحة."));
+    return OmraaNet.rpc(fn, args || {}, opts || {});
+  }
+
+  /* المهلة بتقيّد الموظفة مش المالك، فالشاشة لازم تعرف الدور قبل ما
+     تختار قطعة — مش بعد ما تكتب السبب وتتقفل في وشها. */
+  function whoAmI() {
+    rpc("pos_fn_my_role", {}, { retries: 1 })
+      .then(function (me) {
+        isOwner = !!(me && me.is_owner);
+        if (me && me.return_window_days != null) windowDays = me.return_window_days;
+        roleEl.innerHTML = isOwner
+          ? "داخلة كـ<b>مالك</b> — تقدري ترجّعي في أي وقت."
+          : "داخلة كـ<b>موظفة</b> — الإرجاع خلال " + (windowDays == null ? "المهلة" : windowDays + " يوم") + " بس.";
+      })
+      .catch(function (e) {
+        // فشل التعرّف مايمنعش الشغل: بنفترض الأقل صلاحية والسيرفر هو الحكم
+        isOwner = false;
+        roleEl.textContent = "";
+      });
+  }
+
+  function search(term) {
+    var mine = ++seq;
+    out.innerHTML = '<div class="empty">بندوّر…</div>';
+    rpc("pos_fn_find_returnable", { p_query: term }, { retries: 1 })
+      .then(function (res) {
+        if (mine !== seq) return;              // بحث أحدث سبقه
+        windowDays = res && res.window_days;
+        render((res && res.candidates) || []);
+      })
+      .catch(function (e) {
+        if (mine !== seq) return;
+        out.innerHTML = "";
+        note("err", e.message || "مقدرناش ندوّر دلوقتي.");
+      });
+  }
+
+  function render(list) {
+    clearNote();
+    if (!list.length) {
+      out.innerHTML = '<div class="empty">مفيش قطعة مباعة مطابقة.<br>' +
+        "جرّبي رقم الفاتورة أو موبايل العميلة.</div>";
+      return;
+    }
+    out.innerHTML = list.map(function (c, i) {
+      var expired = windowDays != null && Number(c.age_days) > Number(windowDays);
+      var blocked = expired && !isOwner;
+      var sold = c.sold_at ? new Date(c.sold_at).toLocaleDateString("ar-EG",
+        { year: "numeric", month: "short", day: "numeric" }) : "—";
+      return '' +
+        '<div class="cand' + (expired ? " expired" : "") + '">' +
+          '<div class="c-top">' +
+            "<div>" +
+              '<div class="c-prod">' + esc(c.product) + "</div>" +
+              '<div class="c-meta">مقاس ' + esc(c.size) + " · " + esc(c.color) + "</div>" +
+            "</div>" +
+            '<div class="c-price">' + money(c.unit_price) + "</div>" +
+          "</div>" +
+          '<div class="c-row">' +
+            '<span class="chip">' + esc(c.sale_code || "—") + "</span>" +
+            '<span class="chip">' + esc(sold) + "</span>" +
+            (c.customer ? '<span class="chip">' + esc(c.customer) + "</span>" : "") +
+            (c.phone ? '<span class="chip" dir="ltr">' + esc(c.phone) + "</span>" : "") +
+            '<span class="chip' + (expired ? " warn" : "") + '">' +
+              "بقالها " + esc(c.age_days) + " يوم" + (expired ? " · بعد المهلة" : "") +
+            "</span>" +
+          "</div>" +
+          '<button class="btn btn-primary" data-i="' + i + '"' + (blocked ? " disabled" : "") + ">" +
+            (blocked ? "بعد المهلة — محتاج المالك" : "رجّعي دي") +
+          "</button>" +
+        "</div>";
+    }).join("");
+
+    Array.prototype.forEach.call(out.querySelectorAll("button[data-i]"), function (b) {
+      b.addEventListener("click", function () {
+        var c = list[Number(b.dataset.i)];
+        pending = c;
+        askWhat.textContent = c.product + " — مقاس " + c.size + " · " + c.color +
+                              " (" + (c.sale_code || "") + ")";
+        reasonIn.value = "";
+        ask.hidden = false;
+        reasonIn.focus();
+      });
+    });
+  }
+
+  var CHECK_LABEL = {
+    back_in_stock: "القطعة رجعت للمخزون",
+    sale_line_marked_returned: "سطر الفاتورة اتعلّم مرتجع",
+    stock_movement_written: "حركة المخزون اتسجّلت",
+    return_record_exists: "سجل المرتجع اتعمل",
+    no_dangling_sale_line: "مفيش بيع معلّق على القطعة",
+    product_sellable_again: "المنتج بقى قابل للبيع تاني"
+  };
+
+  function doReturn() {
+    if (busy || !pending) return;
+    busy = true;
+    var yes = document.getElementById("askYes");
+    var old = yes.innerHTML;
+    yes.innerHTML = '<span class="spin"></span> بنرجّع…';
+    yes.disabled = true;
+
+    var item = pending;
+
+    /* retries:0 عن قصد — الدالة دي مالهاش مفتاح ثبات، فإعادة إرسال
+       طلب وصل فعلاً ممكن تعمل مرتجع تاني. الفشل بيتقال للموظفة
+       وهي تقرر، أحسن من مرتجع مكرر في السكوت. */
+    rpc("pos_fn_process_return_item", {
+      p_item: item.item_id,
+      p_reason: reasonIn.value.trim() || null,
+      p_actor: null,          // السيرفر بياخد الهوية من الجلسة، مش من هنا
+      p_override: false
+    }, { retries: 0 })
+      .then(function (r) {
+        ask.hidden = true;
+        if (r && r.ok === false) { note("err", r.message || "المرتجع مانفعش."); return; }
+        /* امسحي البحث الأول: showResult بيكتب في نفس المكان، ولو اتنضّف
+           بعديها كانت النتيجة والفحوصات بتختفي في نفس اللحظة. */
+        q.value = "";
+        showResult(item, r);
+      })
+      .catch(function (e) { ask.hidden = true; note("err", e.message || "المرتجع مانفعش."); })
+      .finally(function () {
+        busy = false; yes.innerHTML = old; yes.disabled = false; pending = null;
+      });
+  }
+
+  function showResult(item, r) {
+    var checks = (r && r.checks) || {};
+    var keys = Object.keys(CHECK_LABEL);
+    var rows = keys.map(function (k) {
+      var pass = checks[k] === true;
+      return '<div class="chk ' + (pass ? "pass" : "fail") + '">' +
+             "<i>" + (pass ? "✓" : "✕") + "</i>" + esc(CHECK_LABEL[k]) + "</div>";
+    }).join("");
+    var allPass = keys.every(function (k) { return checks[k] === true; });
+
+    msgBox.innerHTML = "";
+    out.innerHTML =
+      '<div class="result">' +
+        "<h2>" + (allPass ? "تم الإرجاع واتأكدنا منه" : "الإرجاع تم — راجعي الفحوصات") + "</h2>" +
+        '<div class="refund">' + money(r && r.refunded) + "</div>" +
+        '<div class="checks">' + rows + "</div>" +
+      "</div>" +
+      '<button class="btn btn-ghost" id="again" style="width:100%">مرتجع تاني</button>';
+    document.getElementById("again").addEventListener("click", function () {
+      out.innerHTML = ""; q.value = ""; q.focus();
+    });
+  }
+
+  // ——— الأحداث ———
+  var t = null;
+  q.addEventListener("input", function () {
+    var v = q.value.trim();
+    clearTimeout(t);
+    if (v.length < 3) { out.innerHTML = ""; return; }
+    // الباركود بيتكتب دفعة واحدة من القارئ، فمستنيّينش كتير
+    t = setTimeout(function () { search(v); }, /^\d{6,}$/.test(v) ? 60 : 320);
+  });
+  q.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { clearTimeout(t); var v = q.value.trim(); if (v) search(v); }
+  });
+
+  document.getElementById("askNo").addEventListener("click", function () {
+    ask.hidden = true; pending = null;
+  });
+  document.getElementById("askYes").addEventListener("click", doReturn);
+  reasonIn.addEventListener("keydown", function (e) { if (e.key === "Enter") doReturn(); });
+  ask.addEventListener("click", function (e) {
+    if (e.target === ask) { ask.hidden = true; pending = null; }
+  });
+
+  whoAmI();
+  q.focus();
+})();
+</script>
+</body>
+</html>

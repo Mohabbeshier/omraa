@@ -50,6 +50,12 @@
   .cand .btn{margin-top:11px;width:100%}
 
   .empty{text-align:center;color:var(--muted);padding:34px 12px;font-size:14px}
+  .diag{background:#fffbf5;border:1px solid #fdba74;border-radius:14px;padding:14px;margin-bottom:12px}
+  .diag-prod{font-weight:700;margin-bottom:4px}
+  .diag p{margin:0;font-size:14px;color:#7c3f12;line-height:1.7}
+  .diag-list{margin-top:10px;display:grid;gap:6px}
+  .diag-row{display:flex;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);
+            background:#fff;border:1px solid var(--line);border-radius:9px;padding:6px 10px}
   .msg{border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px}
   .msg.err{background:#fef2f2;border:1px solid #fecaca;color:var(--danger)}
   .msg.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
@@ -136,6 +142,7 @@
   var pending = null;     // القطعة اللي بننتظر تأكيد إرجاعها
   var busy = false;
   var seq = 0;            // عشان رد قديم ما يكتبش فوق نتيجة أحدث
+  var lastDiagnosis = null;   // شرح السيرفر لما البحث ميلاقيش حاجة
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -183,6 +190,7 @@
       .then(function (res) {
         if (mine !== seq) return;              // بحث أحدث سبقه
         windowDays = res && res.window_days;
+        lastDiagnosis = (res && res.diagnosis) || null;
         render((res && res.candidates) || []);
       })
       .catch(function (e) {
@@ -195,8 +203,24 @@
   function render(list) {
     clearNote();
     if (!list.length) {
-      out.innerHTML = '<div class="empty">مفيش قطعة مباعة مطابقة.<br>' +
-        "جرّبي رقم الفاتورة أو موبايل العميلة.</div>";
+      /* الرفض الجاف هو اللي ضيّع مرتجع فعلي قبل كده: الشاشة القديمة كانت
+         بتقول "مفيش قطعة" وخلاص، والمالك يحاول تاني وتالت ويسيبها.
+         دلوقتي السيرفر بيقول السبب وإيه الخطوة الجاية. */
+      var d = lastDiagnosis;
+      var extra = "";
+      if (d && d.returns && d.returns.length) {
+        extra = '<div class="diag-list">' + d.returns.map(function (r) {
+          return '<div class="diag-row"><span>' + esc(r.returned_at) + "</span>" +
+                 "<span>" + money(r.refunded) + "</span>" +
+                 (r.reason ? "<span>" + esc(r.reason) + "</span>" : "") + "</div>";
+        }).join("") + "</div>";
+      }
+      out.innerHTML = d
+        ? '<div class="diag">' +
+            (d.product ? '<div class="diag-prod">' + esc(d.product) + "</div>" : "") +
+            "<p>" + esc(d.text) + "</p>" + extra +
+          "</div>"
+        : '<div class="empty">مفيش قطعة مباعة مطابقة.<br>جرّبي رقم الفاتورة أو موبايل العميلة.</div>';
       return;
     }
     out.innerHTML = list.map(function (c, i) {

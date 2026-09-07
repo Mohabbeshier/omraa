@@ -416,8 +416,31 @@ function Editor({ product, onClose, onChanged }) {
   const [done, setDone] = useState(0);
   const [over, setOver] = useState(false);
   const [acting, setActing] = useState(null);
+  const [published, setPublished] = useState(!!product.is_published);
+  const [publishing, setPublishing] = useState(false);
   const fileRef = useRef(null);
   const dirRef = useRef(null);
+
+  /* رفع الصور مكانش بينشر المنتج، والصفحة مكانش فيها أي زرار نشر — كانت
+     بتكتب "مخفي عن الموقع" وخلاص. فالصور بتترفع صح والمنتج يفضل مخفي،
+     ومحدش يعرف إن فاضل خطوة. الزرار ده هو الخطوة الناقصة. */
+  async function togglePublish() {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const res = await rpc("shop_fn_set_published", {
+        p_product_ids: [product.id], p_published: !published,
+      });
+      if (!res || res.ok === false) throw new Error((res && res.error) || "مقدرناش نغيّر الحالة");
+      setPublished(!published);
+      toast(!published ? "المنتج ظهر على الموقع ✓" : "المنتج اتخفى عن الموقع", "ok");
+      onChanged && onChanged();
+    } catch (e) {
+      toast(e.message || "مقدرناش نغيّر الحالة", "err");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   const countFor = (c) => images.filter((i) => c === GENERIC ? !i.color : i.color === c).length;
   const firstFor = (c) => images.find((i) => c === GENERIC ? !i.color : i.color === c);
@@ -611,10 +634,30 @@ function Editor({ product, onClose, onChanged }) {
           <div className="sheet-head">
             <div>
               <h2>{product.name}</h2>
-              <p className="sub">{product.category || "—"}
-                {!product.is_published && " · مخفي عن الموقع"}</p>
+              <p className="sub">{product.category || "—"}</p>
             </div>
             <button className="sheet-close" onClick={onClose} disabled={uploading}>✕</button>
+          </div>
+
+          {/* حالة الظهور + زرار النشر. المهم إن الحالة نفسها تبان من غير ما
+              حد يدوّر عليها: قبل كده كانت كلمة رمادية جنب القسم. */}
+          <div className={`pubbar${published ? " on" : ""}`}>
+            <div className="pubtxt">
+              <strong>{published ? "ظاهر على الموقع" : "مخفي عن الموقع"}</strong>
+              <span>{published
+                ? "العميلة تقدر تشوفه وتطلبه دلوقتي."
+                : (images.length
+                    ? "الصور اترفعت — فاضل تنشره عشان العميلة تشوفه."
+                    : "ارفعي الصور الأول، وبعدين انشريه.")}</span>
+            </div>
+            <button
+              className={`pubbtn${published ? " off" : ""}`}
+              onClick={togglePublish}
+              disabled={publishing || uploading || (!published && images.length === 0)}
+              title={!published && images.length === 0 ? "محتاج صورة واحدة على الأقل" : ""}
+            >
+              {publishing ? "…" : published ? "إخفاء من الموقع" : "انشر على الموقع"}
+            </button>
           </div>
 
           {colors.length > 0 ? (

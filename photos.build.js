@@ -493,8 +493,32 @@ function Editor({
   const [done, setDone] = useState(0);
   const [over, setOver] = useState(false);
   const [acting, setActing] = useState(null);
+  const [published, setPublished] = useState(!!product.is_published);
+  const [publishing, setPublishing] = useState(false);
   const fileRef = useRef(null);
   const dirRef = useRef(null);
+
+  /* رفع الصور مكانش بينشر المنتج، والصفحة مكانش فيها أي زرار نشر — كانت
+     بتكتب "مخفي عن الموقع" وخلاص. فالصور بتترفع صح والمنتج يفضل مخفي،
+     ومحدش يعرف إن فاضل خطوة. الزرار ده هو الخطوة الناقصة. */
+  async function togglePublish() {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const res = await rpc("shop_fn_set_published", {
+        p_product_ids: [product.id],
+        p_published: !published
+      });
+      if (!res || res.ok === false) throw new Error(res && res.error || "مقدرناش نغيّر الحالة");
+      setPublished(!published);
+      toast(!published ? "المنتج ظهر على الموقع ✓" : "المنتج اتخفى عن الموقع", "ok");
+      onChanged && onChanged();
+    } catch (e) {
+      toast(e.message || "مقدرناش نغيّر الحالة", "err");
+    } finally {
+      setPublishing(false);
+    }
+  }
   const countFor = c => images.filter(i => c === GENERIC ? !i.color : i.color === c).length;
   const firstFor = c => images.find(i => c === GENERIC ? !i.color : i.color === c);
   const shown = sel === null ? images : images.filter(i => sel === GENERIC ? !i.color : i.color === sel);
@@ -742,11 +766,20 @@ function Editor({
     className: "sheet-head"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", null, product.name), /*#__PURE__*/React.createElement("p", {
     className: "sub"
-  }, product.category || "—", !product.is_published && " · مخفي عن الموقع")), /*#__PURE__*/React.createElement("button", {
+  }, product.category || "—")), /*#__PURE__*/React.createElement("button", {
     className: "sheet-close",
     onClick: onClose,
     disabled: uploading
-  }, "✕")), colors.length > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, missing.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "✕")), /*#__PURE__*/React.createElement("div", {
+    className: `pubbar${published ? " on" : ""}`
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "pubtxt"
+  }, /*#__PURE__*/React.createElement("strong", null, published ? "ظاهر على الموقع" : "مخفي عن الموقع"), /*#__PURE__*/React.createElement("span", null, published ? "العميلة تقدر تشوفه وتطلبه دلوقتي." : images.length ? "الصور اترفعت — فاضل تنشره عشان العميلة تشوفه." : "ارفعي الصور الأول، وبعدين انشريه.")), /*#__PURE__*/React.createElement("button", {
+    className: `pubbtn${published ? " off" : ""}`,
+    onClick: togglePublish,
+    disabled: publishing || uploading || !published && images.length === 0,
+    title: !published && images.length === 0 ? "محتاج صورة واحدة على الأقل" : ""
+  }, publishing ? "…" : published ? "إخفاء من الموقع" : "انشر على الموقع")), colors.length > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, missing.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "warnbox"
   }, "لسه من غير صور: ", /*#__PURE__*/React.createElement("strong", null, missing.join("، ")), ". العميلة لما تختار لون من دول هتشوف صورة لون تاني."), /*#__PURE__*/React.createElement("div", {
     className: "clist"

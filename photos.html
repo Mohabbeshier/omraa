@@ -34,6 +34,21 @@
        padding:12px 15px;margin-bottom:16px;font-size:13px;color:#9a3412}
   .queue-banner strong{font-weight:700}
 
+  /* شريط النشر: الحالة لازم تبان من غير ما حد يدوّر عليها، والزرار
+     جنبها مباشرة عشان الخطوة الناقصة تبقى واضحة. */
+  .pubbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+       background:#fff7ed;border:1px solid #fed7aa;border-radius:11px;padding:12px 15px;margin:0 0 16px}
+  .pubbar.on{background:#f0fdf4;border-color:#bbf7d0}
+  .pubtxt{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .pubtxt strong{font-size:14px;color:#9a3412}
+  .pubbar.on .pubtxt strong{color:#166534}
+  .pubtxt span{font-size:12.5px;color:var(--muted)}
+  .pubbtn{border:0;border-radius:9px;padding:11px 18px;font:inherit;font-weight:700;font-size:13.5px;
+       background:var(--ok);color:#fff;cursor:pointer;white-space:nowrap;min-height:44px}
+  .pubbtn:hover:not(:disabled){filter:brightness(.94)}
+  .pubbtn:disabled{opacity:.5;cursor:not-allowed}
+  .pubbtn.off{background:#fff;color:var(--muted);border:1px solid var(--line)}
+
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
   .pcard{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
        cursor:pointer;transition:border-color .15s,transform .15s}
@@ -173,7 +188,7 @@
   <header class="top">
     <div>
       <h1>صور المنتجات</h1>
-      <p class="sub">اسحب الصور من جهازك — تظهر على الموقع فورًا</p>
+      <p class="sub">اسحبي الصور من جهازك، وبعدين انشري المنتج عشان يظهر على الموقع</p>
     </div>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="back" href="website.html">مركز تحكّم الموقع ←</a><a class="back" href="products.html">→ رجوع للمنتجات</a></div>
   </header>

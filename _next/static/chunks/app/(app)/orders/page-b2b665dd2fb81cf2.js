@@ -88,7 +88,15 @@
                 (0, l.useEffect)(() => {
                     let e = () => { "visible" === document.visibilityState && y() };
                     return document.addEventListener("visibilitychange", e), () => document.removeEventListener("visibilitychange", e)
-                }, [y]);
+                }, [y]);(0,l.useEffect)(()=>{
+/* The screen fetched once, then only again when the tab regained focus. Left
+   open on the counter it never refreshed, so a web order could sit unseen
+   until someone happened to switch away and back. Refetch every 30s while the
+   tab is visible; pause when it is not, so a backgrounded tab costs nothing. */
+const _tick=()=>{ if(document.visibilityState==="visible"){ try{ y(); }catch(_e){} } };
+const _id=setInterval(_tick,30000);
+return ()=>clearInterval(_id);
+},[y]);
 
                 let baseFiltered = (0, l.useMemo)(() => "all" === p ? e : e.filter(e => e.status === p), [e, p]),
                     w = (0, l.useMemo)(() => webOnly ? baseFiltered.filter(e => "web" === e.source) : baseFiltered, [baseFiltered, webOnly]),

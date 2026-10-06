@@ -76,7 +76,7 @@
   window.fetch=function(u,o){
     var url="";try{url=String((u&&u.url)||u);}catch(_){}
     var p=OF.apply(this,arguments);
-    try{if(url.indexOf(SB)===0){p.then(function(r){try{
+    try{if(url.indexOf(SB)===0&&url!==SB+"/rest/v1/"){p.then(function(r){try{
       if(!r||r.ok)return;
       var st=r.status;
       if(url.indexOf("/auth/v1/")>=0){if(st===400||st===401||st===403){A401++;banner();}return;}

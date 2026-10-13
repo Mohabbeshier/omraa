@@ -1,7 +1,7 @@
 /* Omraa POS service worker — network-first + قشرة محفوظة للأوفلاين.
    الاستراتيجية: كل طلب بيروح للشبكة الأول بـno-store، فالتحديث بيوصل
    من غير ما المستخدم يعمل حاجة. الكاش للأوفلاين بس. */
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'omraa-net-first-' + VERSION;
 
 /* الصفحات الأساسية بتتحفظ وقت التثبيت. من غير كده، أول مرة يفتح فيها
@@ -55,7 +55,9 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     try {
       const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
+      // الصفحات نفسها بنستنى عليها أكتر: النسخة المحفوظة القديمة وقت النت
+      // البطيء بتفتح «شكل» من غير ما يشتغل — أسوأ من انتظار ثواني زيادة.
+      const timer = setTimeout(() => ctrl.abort(), req.mode === 'navigate' ? 30000 : 12000);
       let fresh;
       try { fresh = await fetch(req, { cache: 'no-store', signal: ctrl.signal }); }
       finally { clearTimeout(timer); }

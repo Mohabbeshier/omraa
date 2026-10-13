@@ -89,7 +89,7 @@
       }).catch(function(){
         window.__omraaLog&&window.__omraaLog("rpc."+fn,{message:"HTTP "+st},{severity:sev});
       });
-    }catch(_){}});}}catch(_){}
+    }catch(_){}},function(){});}}catch(_){}
     return p;
   };
 }catch(_){}})();
@@ -130,3 +130,117 @@
     (document.body||document.documentElement).appendChild(d);
   });
 }catch(_){}})();
+/* === الحارس: النظام يصلّح نفسه من غير ما حد يعمل حاجة ======================
+   ① ساعة الجهاز غلط: بناخد الوقت الحقيقي من السيرفر (من التوكن نفسه) ونصحّح
+      Date.now عليه. كده لو ساعة الجهاز متقدمة أو متأخرة، الجلسة متتلخبطش
+      ومفيش دوامة تجديد توكن (اللي وقّعت جهاز المحل ١١ و١٣ أكتوبر).
+   ② الصفحة تعلق: لو الصفحة اتفتحت وسيرفر Supabase بيرد عادي، بس ولا طلب
+      بيانات واحد نجح خلال ٣٠ ثانية، يبقى الصفحة ميتة (نسخة محفوظة قديمة أو
+      جلسة معلّقة). بنشيل النسخة المحفوظة ونعيد التحميل لوحدنا — مرة كل ١٠ دقايق
+      بالكتير. الطابور الأوفلاين والمسودات في localStorage ومش بيتلمسوا.
+   مبدأ: الحارس بيبلع كل أخطائه — ممنوع يكسر أي حاجة. */
+(function(){try{
+  if(window.__omraaGuard)return;window.__omraaGuard=1;
+  var SB="https://mjetglnmivwphxyzflsz.supabase.co";
+  var SKEW_KEY="omraa.clockSkew.v1",HEAL_KEY="omraa.guard.healAt",MIN_SKEW=30000;
+  var realNow=Date.now.bind(Date),skew=0;
+  function lsGet(k){try{return localStorage.getItem(k);}catch(_){return null;}}
+  function lsSet(k,v){try{localStorage.setItem(k,v);}catch(_){}}
+  function log(ctx,msg,extra){try{window.__omraaLog&&window.__omraaLog(ctx,{message:msg},Object.assign({severity:"warn"},extra||{}));}catch(_){}}
+
+  /* ---------- ① تصحيح الساعة ---------- */
+  try{var s=JSON.parse(lsGet(SKEW_KEY)||"null");
+    if(s&&typeof s.ms==="number"&&Math.abs(s.ms)<30*864e5)skew=s.ms;}catch(_){}
+  Date.now=function(){return realNow()+skew;};
+  function setSkew(ms,src){
+    if(typeof ms!=="number"||!isFinite(ms)||Math.abs(ms)>30*864e5)return;
+    var next=Math.abs(ms)<MIN_SKEW?0:Math.round(ms);
+    if(Math.abs(next-skew)<5000)return;          // نفس القيمة تقريبًا — متلعبش في الوقت
+    var old=skew;skew=next;
+    lsSet(SKEW_KEY,JSON.stringify({ms:skew,at:realNow(),src:src}));
+    if(skew||old)log("guard.clock_skew","device clock off by "+Math.round(skew/1000)+"s",{skew_s:Math.round(skew/1000),src:src});
+  }
+  function b64(x){try{x=x.replace(/-/g,"+").replace(/_/g,"/");while(x.length%4)x+="=";return atob(x);}catch(_){return null;}}
+  function iatOf(tok){try{var p=JSON.parse(b64(String(tok).split(".")[1])||"null");return p&&p.iat?p.iat*1000:null;}catch(_){return null;}}
+  window.__omraaClock=function(){return{skew_ms:skew,device:new Date(realNow()).toISOString(),server:new Date(realNow()+skew).toISOString()};};
+
+  /* ---------- مراقبة الطلبات (تصحيح الساعة + علامة إن الصفحة حيّة) ---------- */
+  var bootAt=realNow(),dataOkAt=0,reachOkAt=0,refreshes=[];
+  var OF=window.fetch;
+  if(typeof OF==="function"){
+    window.fetch=function(u,o){
+      var url="";try{url=String((u&&u.url)||u);}catch(_){}
+      var sentAt=realNow();
+      var p=OF.apply(this,arguments);
+      if(url.indexOf(SB)===0){try{
+        var isTok=url.indexOf("/auth/v1/token")>=0;
+        if(isTok){refreshes.push(sentAt);refreshes=refreshes.filter(function(t){return sentAt-t<60000;});
+          if(refreshes.length===6)log("guard.refresh_storm","6 token refreshes in 60s",{skew_s:Math.round(skew/1000)});}
+        p.then(function(r){try{
+          if(!r)return;
+          if(r.status<500)reachOkAt=realNow();
+          var path=url.slice(SB.length).split("?")[0];
+          if(r.ok&&path.indexOf("/rest/v1/")===0&&path!=="/rest/v1/")dataOkAt=realNow();
+          if(isTok&&r.ok){
+            var mid=(sentAt+realNow())/2;
+            r.clone().json().then(function(j){var iat=iatOf(j&&j.access_token);if(iat)setSkew(iat-mid,"token");}).catch(function(){});
+          }
+        }catch(_){}},function(){});
+      }catch(_){}}
+      return p;
+    };
+  }
+  /* لو التوكن المحفوظ صادر «في المستقبل» بالنسبة لساعة الجهاز، يبقى الساعة متأخرة أكيد */
+  try{var raw=null,REF="mjetglnmivwphxyzflsz",c=String(document.cookie||"").split(";"),jar={};
+    for(var i=0;i<c.length;i++){var q=c[i].indexOf("=");if(q>0)jar[c[i].slice(0,q).trim()]=c[i].slice(q+1);}
+    var nm="sb-"+REF+"-auth-token";raw=jar[nm];
+    if(raw===undefined){raw="";for(var n=0;jar[nm+"."+n]!==undefined;n++)raw+=jar[nm+"."+n];}
+    if(!raw)raw=lsGet(nm)||"";
+    try{raw=decodeURIComponent(raw);}catch(_){}
+    if(raw.indexOf("base64-")===0)raw=b64(raw.slice(7))||"";
+    var sess=raw?JSON.parse(raw):null;if(sess&&sess.currentSession)sess=sess.currentSession;
+    var iat0=sess&&iatOf(sess.access_token);
+    if(iat0&&iat0-realNow()>MIN_SKEW&&skew<iat0-realNow())setSkew(iat0-realNow()+1000,"stored-token");
+  }catch(_){}
+
+  /* ---------- ② الصفحة الميتة ---------- */
+  var page=(location.pathname.split("/").pop()||"index").replace(/\.html$/,"");
+  var WATCH=/^(index|pos|dashboard|products|inventory|returns-v2|returns-classic|shipping|orders|customers|labels|stocktake|settings|reorder|accounting|backup|users|suppliers|strategy|merchandising|website|photos)$/;
+  function hasSession(){try{return document.cookie.indexOf("auth-token")>=0||!!lsGet("sb-mjetglnmivwphxyzflsz-auth-token");}catch(_){return false;}}
+  function heal(reason){
+    var last=+(lsGet(HEAL_KEY)||0);
+    if(realNow()-last<600000)return;               // مرة كل ١٠ دقايق بالكتير — مستحيل يدخل في لفّة
+    lsSet(HEAL_KEY,String(realNow()));
+    log("guard.self_heal",reason,{page:page});
+    var done=function(){try{location.reload();}catch(_){}};
+    var jobs=[];
+    try{if(navigator.serviceWorker&&navigator.serviceWorker.getRegistrations)
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));}catch(_){}
+    try{if(window.caches&&caches.keys)
+      jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}));}catch(_){}
+    Promise.all(jobs).then(done,done);
+    setTimeout(done,4000);                          // لو حاجة علّقت، نعيد التحميل برضه
+  }
+  function probe(){
+    var ctrl=null;try{ctrl=new AbortController();setTimeout(function(){try{ctrl.abort();}catch(_){}},8000);}catch(_){}
+    return (OF||fetch).call(window,SB+"/auth/v1/health",{cache:"no-store",signal:ctrl&&ctrl.signal})
+      .then(function(r){return !!r&&r.status<500;},function(){return false;});
+  }
+  function check(){
+    try{
+      if(!WATCH.test(page)||!hasSession())return;
+      if(document.visibilityState==="hidden")return;
+      if(dataOkAt&&realNow()-dataOkAt<120000)return;            // الصفحة شغالة
+      if(!dataOkAt&&realNow()-bootAt<30000)return;              // لسه بتحمّل
+      if(navigator.onLine===false)return;                        // النت فاصل فعلًا — الأوفلاين شغله
+      probe().then(function(reach){
+        if(!reach)return;                                        // السيرفر مش بيرد = مشكلة نت، مش الصفحة
+        if(dataOkAt&&realNow()-dataOkAt<120000)return;
+        if(!dataOkAt)heal("no data request succeeded in "+Math.round((realNow()-bootAt)/1000)+"s while server reachable");
+      });
+    }catch(_){}
+  }
+  setTimeout(check,32000);
+  setInterval(check,60000);
+}catch(_){}})();
+

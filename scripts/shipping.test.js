@@ -8,10 +8,10 @@ const COOKIE=`sb-${REF}-auth-token=base64-${b64(JSON.stringify({access_token:'TO
 
 const day=86400000;
 let DB=[
- {id:'s1',customer:'سلوي محسن',phone:'01112697619',address:'العبور',cod:550,total:550,
+ {id:'s1',customer:'عميلة تجريبية ١',phone:'01000000001',address:'العبور',cod:550,total:550,
   status:'preparing',status_label:'تحت التجهيز للشحن',money:'waiting',money_label:'لسه معلقة',
   courier:'RO.R',sale_code:'INV-313',created_at:new Date(Date.now()-9*day).toISOString(),stage:1},
- {id:'s2',customer:'هاجر السيد',phone:'01060971283',address:'دمياط',cod:1500,total:1500,
+ {id:'s2',customer:'عميلة تجريبية ٢',phone:'01000000002',address:'دمياط',cod:1500,total:1500,
   status:'preparing',status_label:'تحت التجهيز للشحن',money:'waiting',money_label:'لسه معلقة',
   courier:'RO.R',sale_code:'INV-312',created_at:new Date(Date.now()-1*day).toISOString(),stage:1},
  {id:'s3',customer:'منى',phone:'0100',address:'طنطا',cod:800,total:800,
@@ -81,9 +81,9 @@ const must=(c,m)=>{if(!c) throw new Error('✗ '+m); ok(m)};
 (async()=>{
   await T(150);
   console.log('━━ الفتح ━━');
-  must(txt().includes('سلوي محسن'),'الشحنات ظهرت');
+  must(txt().includes('عميلة تجريبية ١'),'الشحنات ظهرت');
   must(txt().includes('محتاج حاجة'),'التبويب الافتراضي «محتاج حاجة»');
-  must(/سلوي محسن[\s\S]{0,400}هاجر السيد/.test(txt()),'الأقدم فوق (٩ أيام قبل ١ يوم)');
+  must(/عميلة تجريبية ١[\s\S]{0,400}عميلة تجريبية ٢/.test(txt()),'الأقدم فوق (٩ أيام قبل ١ يوم)');
   must(txt().includes('من ٩ يوم'),'بيقول بقالها كام يوم');
   must(txt().includes('طلعت مع المندوب'),'الزرار الكبير = الخطوة اللي بعدها');
   must(txt().includes('٥٥٠ ج'),'المبلغ ظاهر بالعربي');
@@ -91,9 +91,9 @@ const must=(c,m)=>{if(!c) throw new Error('✗ '+m); ok(m)};
   console.log('━━ ضغطة واحدة تحرّك الشحنة ━━');
   clickText('طلعت مع المندوب'); await T(120);
   must(DB.find(r=>r.id==='s1').status==='with_courier','اتحركت لـ«مع المندوب»');
-  must(!txt().includes('سلوي محسن'),'خرجت من «محتاج حاجة»');
+  must(!txt().includes('عميلة تجريبية ١'),'خرجت من «محتاج حاجة»');
   clickText('مع المندوب'); await T(80);   // التبويب
-  must(txt().includes('سلوي محسن'),'ظهرت في «مع المندوب»');
+  must(txt().includes('عميلة تجريبية ١'),'ظهرت في «مع المندوب»');
   must(txt().includes('بيوصّلها دلوقتي'),'الزرار بقى الخطوة التالية');
 
   console.log('━━ الفلو كامل لحد التسليم ━━');
@@ -113,7 +113,7 @@ const must=(c,m)=>{if(!c) throw new Error('✗ '+m); ok(m)};
   clickText('تأكيد التحصيل'); await T(150);
   // القايمة مرتّبة بالأقدم، فأول كارت هو s1 (٩ أيام) مش ريم (٦)
   must(DB.find(r=>r.id==='s1').money==='received','الفلوس اتسجّلت لأول كارت');
-  must(!txt().includes('سلوي محسن'),'خرجت من «فلوس مستنية» بعد التحصيل');
+  must(!txt().includes('عميلة تجريبية ١'),'خرجت من «فلوس مستنية» بعد التحصيل');
   must(txt().includes('ريم'),'الباقي لسه ظاهر');
 
   console.log('━━ التحديد الجماعي ━━');

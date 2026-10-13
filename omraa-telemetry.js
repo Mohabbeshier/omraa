@@ -142,6 +142,8 @@
 (function(){try{
   if(window.__omraaGuard)return;window.__omraaGuard=1;
   var SB="https://mjetglnmivwphxyzflsz.supabase.co";
+  var ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
+  var OF0=window.fetch;
   var SKEW_KEY="omraa.clockSkew.v1",HEAL_KEY="omraa.guard.healAt",MIN_SKEW=30000;
   var realNow=Date.now.bind(Date),skew=0;
   function lsGet(k){try{return localStorage.getItem(k);}catch(_){return null;}}
@@ -162,6 +164,19 @@
   }
   function b64(x){try{x=x.replace(/-/g,"+").replace(/_/g,"/");while(x.length%4)x+="=";return atob(x);}catch(_){return null;}}
   function iatOf(tok){try{var p=JSON.parse(b64(String(tok).split(".")[1])||"null");return p&&p.iat?p.iat*1000:null;}catch(_){return null;}}
+  /* المصدر الأساسي للوقت: السيرفر نفسه (مش مرتبط بالجلسة ولا بمكتبة الدخول) */
+  var syncing=false,lastSync=0;
+  function syncClock(){
+    if(syncing||realNow()-lastSync<60000)return;syncing=true;
+    var t0=realNow();
+    try{(OF0||fetch).call(window,SB+"/rest/v1/rpc/pos_fn_server_time",{method:"POST",cache:"no-store",
+      headers:{"Content-Type":"application/json",apikey:ANON},body:"{}"})
+      .then(function(r){return r&&r.ok?r.json():null;})
+      .then(function(ms){syncing=false;var t1=realNow();
+        if(typeof ms==="number"&&t1-t0<5000){lastSync=t1;setSkew(ms-(t0+t1)/2,"server");}},
+        function(){syncing=false;});
+    }catch(_){syncing=false;}
+  }
   window.__omraaClock=function(){return{skew_ms:skew,device:new Date(realNow()).toISOString(),server:new Date(realNow()+skew).toISOString()};};
 
   /* ---------- مراقبة الطلبات (تصحيح الساعة + علامة إن الصفحة حيّة) ---------- */
@@ -171,10 +186,26 @@
     window.fetch=function(u,o){
       var url="";try{url=String((u&&u.url)||u);}catch(_){}
       var sentAt=realNow();
-      var p=OF.apply(this,arguments);
+      var self=this,args=arguments,p=OF.apply(self,args);
+      /* ③ السيرفر رفض تجديد الجلسة بسبب ضغط (429): الطلب ما اتنفذش أصلًا، فإعادته
+         آمنة. بنعيدها بهدوء بدل ما مكتبة الدخول تفتكر الجلسة باظت وتطلّع الكاشير برّه. */
+      if(url.indexOf(SB+"/auth/v1/token")===0){
+        p=p.then(function(r){
+          if(!r||r.status!==429)return r;
+          var tries=0;
+          function again(){tries++;
+            return new Promise(function(res){setTimeout(res,[2000,5000,10000][tries-1]);})
+              .then(function(){return OF.apply(self,args);})
+              .then(function(r2){return (r2&&r2.status===429&&tries<3)?again():r2;},function(){return r;});}
+          log("guard.auth_429_retry","token endpoint rate-limited, retrying",{});
+          syncClock();
+          return again();
+        });
+      }
       if(url.indexOf(SB)===0){try{
         var isTok=url.indexOf("/auth/v1/token")>=0;
         if(isTok){refreshes.push(sentAt);refreshes=refreshes.filter(function(t){return sentAt-t<60000;});
+          if(refreshes.length>=3){lastSync=0;syncClock();}
           if(refreshes.length===6)log("guard.refresh_storm","6 token refreshes in 60s",{skew_s:Math.round(skew/1000)});}
         p.then(function(r){try{
           if(!r)return;
@@ -240,6 +271,10 @@
       });
     }catch(_){}
   }
+  syncClock();
+  setInterval(function(){lastSync=0;syncClock();},600000);
+  try{document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")syncClock();});
+    window.addEventListener("online",function(){lastSync=0;syncClock();});}catch(_){}
   setTimeout(check,32000);
   setInterval(check,60000);
 }catch(_){}})();

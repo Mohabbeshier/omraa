@@ -8,7 +8,8 @@ const jwt=iat=>'h.'+b64url(JSON.stringify({iat,exp:iat+3600,role:'authenticated'
 let pass=0;const must=(c,m)=>{if(!c){console.log('  ✗ '+m);process.exitCode=1;}else{console.log('  ✓ '+m);pass++;}};
 const tick=()=>new Promise(r=>setTimeout(r,20));
 
-function boot({page='pos.html',session,skewStored,queue,net}={}){
+function boot({page='pos.html',session,skewStored,queue,net,dev=0}={}){
+  let RN;
   const dom=new JSDOM('<body></body>',{runScripts:'dangerously',url:'https://mohabbeshier.github.io/omraa/'+page});
   const w=dom.window;const timers=[];const calls={reload:0,unreg:0,cachesDel:0,fetch:[],logs:[]};
   w.setTimeout=(f,ms)=>{timers.push({f,ms});return timers.length;};
@@ -19,13 +20,15 @@ function boot({page='pos.html',session,skewStored,queue,net}={}){
   net=Object.assign({reach:true,tokenIat:null},net||{});
   w.fetch=async(u)=>{u=String(u);calls.fetch.push(u);
     if(u.endsWith('/auth/v1/health')){if(!net.reach)throw new TypeError('Failed to fetch');return {ok:true,status:200};}
+    if(u.includes('pos_fn_server_time')){if(net.server==null)return {ok:false,status:404};return {ok:true,status:200,json:async()=>RN()+w.__adv};}
+    if(u.includes('/auth/v1/token')&&net.tok429>0){net.tok429--;return {ok:false,status:429,clone:()=>({json:async()=>({})})};}
     if(u.includes('/auth/v1/token'))return {ok:true,status:200,clone:()=>({json:async()=>({access_token:jwt(net.tokenIat)})})};
     return {ok:true,status:200,clone:()=>({json:async()=>({})})};};
   w.__omraaLog=(ctx,e,x)=>calls.logs.push(ctx);
   w.__fakeLoc={pathname:'/omraa/'+page,reload:()=>calls.reload++};
   Object.defineProperty(w.navigator,'serviceWorker',{value:{getRegistrations:async()=>[{unregister:async()=>{calls.unreg++;return true;}}]},configurable:true});
   w.caches={keys:async()=>['omraa-net-first-v5'],delete:async()=>{calls.cachesDel++;return true;}};
-  w.__adv=0;const RN=w.Date.now.bind(w.Date);w.Date.now=()=>RN()+w.__adv;
+  w.__adv=0;RN=w.Date.now.bind(w.Date);w.Date.now=()=>RN()+w.__adv+dev;
   const el=w.document.createElement('script');el.textContent='(function(location){'+CODE+'\n})(window.__fakeLoc);';w.document.body.appendChild(el);
   const run=async ms=>{w.__adv+=ms;for(const t of timers.filter(t=>t.ms===ms))t.f();await tick();await tick();};
   return {w,calls,timers,run};
@@ -53,6 +56,21 @@ function boot({page='pos.html',session,skewStored,queue,net}={}){
   b=boot({net:{tokenIat:now+10}});
   await b.w.fetch(SB+'/auth/v1/token');await tick();await tick();
   must(Math.abs(b.w.Date.now()-Date.now())<1500,'فرق ١٠ ثواني ← مفيش تصحيح');
+
+  console.log('③ الوقت من السيرفر');
+  for(const [dev,label] of [[3600000,'متقدمة ساعة'],[-7200000,'متأخرة ساعتين'],[86400000*3,'متقدمة ٣ أيام']]){
+    b=boot({dev,net:{server:true}});await tick();await tick();
+    must(Math.abs(b.w.Date.now()-(Date.now()+b.w.__adv))<3000,'ساعة الجهاز '+label+' ← اتصحّحت من السيرفر أول ما الصفحة فتحت (من غير أي تجديد جلسة)');
+  }
+  b=boot({dev:0,net:{server:true}});await tick();await tick();
+  must(b.w.localStorage.getItem('omraa.clockSkew.v1')===null,'ساعة مظبوطة ← مفيش أي تدخّل');
+  console.log('④ رفض السيرفر المؤقت (429)');
+  b=boot({net:{tokenIat:now,tok429:2}});
+  const pr=b.w.fetch(SB+'/auth/v1/token?grant_type=refresh_token',{method:'POST',body:'{}'});
+  for(let i=0;i<6;i++){for(const t of b.timers.filter(t=>t.ms===2000||t.ms===5000).splice(0))t.f();await tick();}
+  const res=await pr;
+  must(res.status===200,'تجديد الجلسة اترفض مرتين ← اتعاد لوحده ونجح، والكاشير مايطلعش برّه');
+  must(b.calls.fetch.filter(u=>u.includes('/auth/v1/token')).length===3,'٣ محاولات بالظبط، مش لفّة');
 
   console.log('② الصفحة الميتة');
   const Q=[{op:'sale',key:'k1'}];

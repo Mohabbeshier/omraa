@@ -163,6 +163,93 @@
        padding:10px 12px;font-size:12.5px;margin-bottom:14px;line-height:1.7}
 
 
+  /* ── أساسيات كانت ناقصة: الأزرار والتوست وشيت الأكشن كانت بتطلع من غير
+     ستايل خالص (الكلاسات مستخدمة في الصفحة ومش متعرّفة هنا). */
+  .btn-primary{border:0;border-radius:10px;padding:12px 18px;font:inherit;font-weight:700;font-size:14px;
+       background:var(--brand);color:#fff;cursor:pointer;min-height:44px}
+  .btn-primary:hover:not(:disabled){filter:brightness(.95)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{border:1px solid var(--line);border-radius:10px;padding:10px 14px;font:inherit;font-size:13px;
+       background:#fff;color:var(--ink);cursor:pointer}
+  .btn-ghost:hover{border-color:var(--brand)}
+  .btn-sm{padding:7px 12px;font-size:12.5px}
+  .center{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0}
+  .muted{color:var(--muted)}
+  .spin-big{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--brand);
+       border-radius:99px;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:13px}
+  #toast{position:fixed;bottom:calc(84px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+       z-index:120;display:none;max-width:calc(100% - 32px);background:var(--ink);color:#fff;
+       padding:11px 16px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 10px 30px -10px rgba(0,0,0,.4)}
+  #toast.ok{background:#166534}
+  #toast.err{background:var(--danger)}
+  .stickybar{position:fixed;inset-inline:0;bottom:0;z-index:90;background:rgba(255,255,255,.96);
+       border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+       display:flex;justify-content:center}
+  .stickybar .btn-primary{width:100%;max-width:520px}
+  .pactions{position:fixed;inset:0;z-index:110;background:rgba(15,23,42,.5);display:flex;
+       align-items:flex-end;justify-content:center}
+  .pabox{background:#fff;border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+       width:100%;max-width:520px;max-height:80vh;overflow-y:auto}
+  .pabox h3{margin:0 0 4px;font-size:16px}
+  .pa-btn{display:block;width:100%;text-align:start;border:1px solid var(--line);background:#fff;border-radius:10px;
+       padding:12px 14px;margin-bottom:8px;font:inherit;font-size:14px;cursor:pointer;min-height:44px}
+  .pa-btn:hover{border-color:var(--brand)}
+  .pa-btn.danger{color:var(--danger);border-color:#fecaca}
+
+  /* ── الأوضاع الثلاثة + الإحصائيات ─────────────────────────────────── */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .stats div{background:#fff;border:1px solid var(--line);border-radius:11px;padding:10px 12px;display:flex;flex-direction:column}
+  .stats b{font-size:19px;font-weight:700;line-height:1.2}
+  .stats span{font-size:11.5px;color:var(--muted)}
+  .modes{display:flex;gap:6px;margin-bottom:16px;background:#eef2f7;padding:4px;border-radius:12px}
+  .mode{flex:1;border:0;background:transparent;border-radius:9px;padding:10px 8px;font:inherit;font-size:13.5px;
+       font-weight:600;color:var(--muted);cursor:pointer;min-height:44px;white-space:nowrap}
+  .mode.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12)}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .sku{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:700;
+       background:#eef2ff;color:#3730a3;border-radius:6px;padding:0 6px;direction:ltr;unicode-bidi:isolate}
+
+  /* فلاتر الموديلات */
+  .fbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .fbar select{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px;
+       background:#fff;color:var(--ink);min-width:0;flex:1 1 140px;max-width:220px}
+
+  /* المسح بالكاميرا */
+  .cam-btn{width:100%;margin-bottom:12px}
+  .cam{position:relative;border-radius:14px;overflow:hidden;background:#000;margin-top:4px}
+  .cam video{width:100%;display:block;max-height:60vh;object-fit:cover}
+  .cam-frame{position:absolute;inset:30% 12%;border:3px solid rgba(255,255,255,.85);border-radius:12px;pointer-events:none}
+  .cam .btn-ghost{position:absolute;bottom:10px;left:50%;transform:translateX(-50%)}
+
+  /* اختيار الموديل */
+  .picker{position:relative}
+  .picker input{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:13px}
+  .picker-list{position:absolute;z-index:20;inset-inline:0;top:100%;background:#fff;border:1px solid var(--line);
+       border-radius:10px;box-shadow:0 12px 30px -12px rgba(15,23,42,.3);max-height:260px;overflow-y:auto;margin-top:4px}
+  .picker-row{display:flex;gap:8px;align-items:center;width:100%;border:0;background:#fff;padding:9px 11px;
+       font:inherit;font-size:13px;text-align:start;cursor:pointer;border-bottom:1px solid #f1f5f9}
+  .picker-row:hover{background:#f5f7ff}
+  .picker-row .pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .picker-row .pcat{color:var(--muted);font-size:11.5px}
+
+  /* جدول الرفع الجماعي */
+  .brows{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+  .brow{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:11px;padding:8px;background:#fff;position:relative}
+  .brow.miss{border-color:#fed7aa;background:#fffbf5}
+  .brow.err{border-color:#fecaca;background:#fff5f5}
+  .brow img{width:64px;height:64px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:var(--bg)}
+  .binfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;padding-inline-end:26px}
+  .binfo select{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;background:#fff}
+  .fname{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:right}
+  .bprod{font-size:13px;font-weight:600}
+  .link{border:0;background:none;color:var(--brand);font:inherit;font-size:12px;cursor:pointer;padding:0 6px}
+  .bad-inline{color:var(--danger);font-size:12px}
+  .x-inline{position:absolute;top:6px;inset-inline-end:6px;width:24px;height:24px;border-radius:99px;border:0;
+       background:#f1f5f9;color:var(--muted);cursor:pointer;font-size:12px}
+  @media (max-width:520px){ .stats{grid-template-columns:repeat(2,1fr)} .fbar select{max-width:none} }
+
   /* أهداف اللمس على الموبايل: التصميم اتعمل للماوس على شاشة كبيرة،
      ودلوقتي بقى تطبيق على الموبايل. توصية آبل ٤٤ بكسل للإصبع، وكان
      فيه أزرار ٢٧ بكسل. الكثافة على الديسك توب بتفضل زي ما هي — الميديا
@@ -188,7 +275,7 @@
   <header class="top">
     <div>
       <h1>صور المنتجات</h1>
-      <p class="sub">اسحبي الصور من جهازك، وبعدين انشري المنتج عشان يظهر على الموقع</p>
+      <p class="sub">كل صورة مربوطة بالموديل (الاسم والـSKU) واللون — امسحي باركود، أو ارفعي جماعي، أو اختاري موديل</p>
     </div>
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap"><a class="back" href="website.html">مركز تحكّم الموقع ←</a><a class="back" href="products.html">→ رجوع للمنتجات</a></div>
   </header>

@@ -321,55 +321,156 @@ function toast(msg, kind) {
 
 const GENERIC = "__generic__";
 
+/* ── تفضيلات الفلاتر بتتحفظ على الجهاز ──────────────────────────────
+   localStorage ممكن يرمي (وضع خاص أو مقفول) — ساعتها نكمل بالافتراضي. */
+const PREF_KEY = "omraa.photos.prefs.v1";
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREF_KEY) || "{}") || {}; } catch (e) { return {}; }
+}
+function savePrefs(p) {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+/* أرقام عربي → إنجليزي، وتطبيع الحروف للبحث المحلي */
+const toLatinDigits = (s) => String(s || "").replace(/[٠-٩]/g, (d) => "٠١٢٣٤٥٦٧٨٩".indexOf(d))
+  .replace(/[۰-۹]/g, (d) => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+const normQ = (s) => toLatinDigits(s).trim().toLowerCase()
+  .replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[ؤ]/g, "و");
+
+function stateOf(p) {
+  const total = (p.colors || []).length;
+  const covered = total
+    ? p.colors.filter((c) => (p.by_color || {})[c] > 0).length
+    : (p.photo_count > 0 ? 1 : 0);
+  const target = total || 1;
+  if (p.photo_count === 0) return { key: "none", covered: 0, target };
+  if (covered < target) return { key: "partial", covered, target };
+  return { key: "done", covered, target };
+}
+
+/* ── اختيار موديل بالاسم أو الـSKU ───────────────────────────────────
+   بيتستخدم في الرفع الجماعي لما اسم الملف ما يتعرّفش. */
+function ModelPicker({ products, onPick, autoFocus, placeholder }) {
+  const [q, setQ] = useState("");
+  const n = normQ(q);
+  // الترتيب: الـSKU بالظبط أولًا، بعده اللي بيبدأ بيه، وبعده الاسم
+  const rank = (p) => normQ(p.base_sku) === n ? 0 : normQ(p.base_sku).startsWith(n) ? 1
+    : normQ(p.name).startsWith(n) ? 2 : normQ(p.name).includes(n) ? 3 : 9;
+  const hits = n
+    ? products.map((p) => [rank(p), p]).filter(([r]) => r < 9)
+        .sort((a, b) => a[0] - b[0] || String(a[1].base_sku).length - String(b[1].base_sku).length)
+        .slice(0, 8).map(([, p]) => p)
+    : [];
+  return (
+    <div className="picker">
+      <input autoFocus={autoFocus} value={q} onChange={(e) => setQ(e.target.value)}
+             placeholder={placeholder || "اكتبي اسم الموديل أو الـSKU…"} />
+      {hits.length > 0 && (
+        <div className="picker-list">
+          {hits.map((p) => (
+            <button key={p.id} type="button" className="picker-row"
+                    onClick={() => { onPick(p); setQ(""); }}>
+              <span className="sku">{p.base_sku}</span>
+              <span className="pname">{p.name}</span>
+              <span className="pcat">{p.category || ""}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── قائمة المنتجات ───────────────────────────────────────────────
-   الترتيب مقصود: اللي محتاج صور فوق. ده هو الطابور، مش قائمة تصفّح. */
-function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
-  const q = filter.trim();
-  const stateOf = (p) => {
-    const total = (p.colors || []).length;
-    const covered = total
-      ? p.colors.filter((c) => (p.by_color || {})[c] > 0).length
-      : (p.photo_count > 0 ? 1 : 0);
-    const target = total || 1;
-    if (p.photo_count === 0) return { key: "none", covered: 0, target };
-    if (covered < target) return { key: "partial", covered, target };
-    return { key: "done", covered, target };
-  };
+   الترتيب مقصود: اللي محتاج صور فوق. ده هو الطابور، مش قائمة تصفّح.
+   الفلاتر: حالة الصور، القسم، الظهور على الموقع، المخزون، اللون، والترتيب.
+   البحث بالاسم أو الـSKU أو أي باركود للموديل. */
+function ProductGrid({ products, onOpen, prefs, setPref, barcodeHit }) {
+  const { q = "", tab = "none", cat = "", pub = "", stock = "", color = "", sort = "need" } = prefs;
+  const n = normQ(q);
 
   const withState = products.map((p) => ({ ...p, st: stateOf(p) }));
-  const counts = {
-    none: withState.filter((p) => p.st.key === "none").length,
-    partial: withState.filter((p) => p.st.key === "partial").length,
-    done: withState.filter((p) => p.st.key === "done").length,
-  };
+  const cats = [...new Set(products.map((p) => p.category).filter(Boolean))].sort();
+  const allColors = [...new Set(products.flatMap((p) => p.colors || []))].sort();
 
-  let list = withState;
-  if (tab !== "all") list = list.filter((p) => p.st.key === tab);
-  if (q) list = list.filter((p) => (p.name || "").includes(q));
+  // الفلاتر كلها ماعدا الحالة — عشان أرقام الحالة تبقى صح للاختيار الحالي
+  let base = withState;
+  if (cat) base = base.filter((p) => p.category === cat);
+  if (pub === "on") base = base.filter((p) => p.is_published);
+  if (pub === "off") base = base.filter((p) => !p.is_published);
+  if (stock === "in") base = base.filter((p) => (p.in_stock || 0) > 0);
+  if (stock === "out") base = base.filter((p) => !(p.in_stock > 0));
+  if (color) base = base.filter((p) => (p.colors || []).includes(color));
+  if (n) base = base.filter((p) => normQ(p.name).includes(n) || normQ(p.base_sku) === n
+                              || (barcodeHit && barcodeHit.has(p.id)));
+
+  const counts = {
+    none: base.filter((p) => p.st.key === "none").length,
+    partial: base.filter((p) => p.st.key === "partial").length,
+    done: base.filter((p) => p.st.key === "done").length,
+  };
+  let list = tab === "all" ? base : base.filter((p) => p.st.key === tab);
+  const by = {
+    need: (a, b) => (a.st.key === "none" ? 0 : a.st.key === "partial" ? 1 : 2) - (b.st.key === "none" ? 0 : b.st.key === "partial" ? 1 : 2)
+                    || (b.is_published - a.is_published) || (b.in_stock || 0) - (a.in_stock || 0),
+    stock: (a, b) => (b.in_stock || 0) - (a.in_stock || 0),
+    newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+    name: (a, b) => String(a.name).localeCompare(String(b.name), "ar"),
+    sku: (a, b) => String(a.base_sku).localeCompare(String(b.base_sku), "en", { numeric: true }),
+  };
+  list = [...list].sort(by[sort] || by.need);
+  const active = [cat, pub, stock, color].filter(Boolean).length;
 
   return (
     <>
       <div className="search-row">
-        <input placeholder="دوّري على موديل…" value={filter}
-               onChange={(e) => setFilter(e.target.value)} />
+        <input placeholder="دوّري بالاسم أو الـSKU أو امسحي باركود…" value={q}
+               onChange={(e) => setPref("q", e.target.value)} />
+        {q && <button className="btn-ghost btn-sm" onClick={() => setPref("q", "")}>مسح</button>}
+      </div>
+
+      <div className="fbar">
+        <select value={cat} onChange={(e) => setPref("cat", e.target.value)} aria-label="القسم">
+          <option value="">كل الأقسام</option>
+          {cats.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={pub} onChange={(e) => setPref("pub", e.target.value)} aria-label="الظهور على الموقع">
+          <option value="">الموقع: الكل</option>
+          <option value="on">ظاهر على الموقع</option>
+          <option value="off">مخفي عن الموقع</option>
+        </select>
+        <select value={stock} onChange={(e) => setPref("stock", e.target.value)} aria-label="المخزون">
+          <option value="">المخزون: الكل</option>
+          <option value="in">فيه مخزون</option>
+          <option value="out">خلصان</option>
+        </select>
+        <select value={color} onChange={(e) => setPref("color", e.target.value)} aria-label="اللون">
+          <option value="">كل الألوان</option>
+          {allColors.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={sort} onChange={(e) => setPref("sort", e.target.value)} aria-label="الترتيب">
+          <option value="need">الترتيب: المحتاج صور الأول</option>
+          <option value="stock">الترتيب: الأكتر مخزون</option>
+          <option value="newest">الترتيب: الأحدث</option>
+          <option value="name">الترتيب: الاسم</option>
+          <option value="sku">الترتيب: الـSKU</option>
+        </select>
+        {active > 0 && (
+          <button className="btn-ghost btn-sm" onClick={() => { ["cat","pub","stock","color"].forEach((k) => setPref(k, "")); }}>
+            شيل الفلاتر ({active})
+          </button>
+        )}
       </div>
 
       <div className="filters">
         {[["none", "محتاج صور", counts.none],
           ["partial", "ناقص ألوان", counts.partial],
           ["done", "تمام", counts.done],
-          ["all", "الكل", withState.length]].map(([k, label, n]) => (
+          ["all", "الكل", base.length]].map(([k, label, c]) => (
           <button key={k} className={`fchip${tab === k ? " on" : ""}`}
-                  onClick={() => setTab(k)}>{label} ({n})</button>
+                  onClick={() => setPref("tab", k)}>{label} ({c})</button>
         ))}
       </div>
-
-      {tab === "none" && counts.none > 0 && (
-        <div className="queue-banner">
-          ابدئي بـ<strong>خمسة</strong> بس — أحسن خمس موديلات عندك. الموقع بيبيع بالصورة،
-          والموديل من غير صورة زي ما يكون مش موجود.
-        </div>
-      )}
 
       <div className="grid">
         {list.map((p) => {
@@ -387,9 +488,12 @@ function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
               <div className="body">
                 <p className="name">{p.name}</p>
                 <p className="meta">
+                  <span className="sku">{p.base_sku}</span>
+                  {" · "}
                   {(p.colors || []).length
-                    ? `${p.st.covered} من ${p.st.target} ألوان`
+                    ? `${p.st.covered}/${p.st.target} ألوان`
                     : (p.photo_count ? `${p.photo_count} صورة` : "لسه")}
+                  {" · "}{p.in_stock || 0} قطعة
                 </p>
                 <div className="bar"><span style={{ width: `${pct}%` }} /></div>
               </div>
@@ -397,7 +501,7 @@ function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
           );
         })}
         {list.length === 0 && <div className="empty" style={{ gridColumn: "1/-1" }}>
-          مفيش موديل هنا</div>}
+          مفيش موديل بالفلاتر دي</div>}
       </div>
     </>
   );
@@ -407,10 +511,14 @@ function ProductGrid({ products, onOpen, filter, setFilter, tab, setTab }) {
    الفلو: تسحب الصور → تراجعها وألوانها في صينية → ترفع الكل مرة واحدة.
    الترتيب ده مقصود: تصحيح لون قبل الرفع مجاني، وبعد الرفع بيتكلّف
    نداء شبكة لكل صورة. */
-function Editor({ product, onClose, onChanged }) {
+function Editor({ product, onClose, onChanged, initialColor }) {
   const [images, setImages] = useState(product.images || []);
   const colors = product.colors || [];
-  const [sel, setSel] = useState(colors.length === 1 ? colors[0] : null);
+  // لو جاي من مسح باركود، اللون معروف — نفتح عليه على طول
+  const [sel, setSel] = useState(
+    initialColor && colors.includes(initialColor) ? initialColor
+      : colors.length === 1 ? colors[0] : null);
+  const camRef = useRef(null);
   const [tray, setTray] = useState([]);          // الصور المستنية الرفع
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(0);
@@ -634,7 +742,11 @@ function Editor({ product, onClose, onChanged }) {
           <div className="sheet-head">
             <div>
               <h2>{product.name}</h2>
-              <p className="sub">{product.category || "—"}</p>
+              <p className="sub">
+                <span className="sku">SKU {product.base_sku || "—"}</span>
+                {" · "}{product.category || "—"}
+                {sel && sel !== GENERIC ? <> · اللون: <strong>{sel}</strong></> : null}
+              </p>
             </div>
             <button className="sheet-close" onClick={onClose} disabled={uploading}>✕</button>
           </div>
@@ -694,6 +806,16 @@ function Editor({ product, onClose, onChanged }) {
               الموديل ده مسجّل من غير ألوان في المخزون، فالصور هتبقى عامة لكل الموديل.
             </div>
           )}
+
+          {/* التصوير المباشر: على الموبايل بيفتح الكاميرا الخلفية على طول.
+              الصورة بتدخل الصينية باللون المختار فوق، زي أي صورة تانية. */}
+          <button className="btn-primary cam-btn" disabled={uploading}
+                  onClick={() => camRef.current && camRef.current.click()}>
+            📷 صوّري دلوقتي{sel && sel !== GENERIC ? ` — ${sel}` : ""}
+          </button>
+          <input ref={camRef} type="file" accept="image/*" capture="environment"
+                 style={{ display: "none" }}
+                 onChange={(e) => { addToTray(e.target.files); e.target.value = ""; }} />
 
           {/* منطقة السحب والإفلات */}
           <div className={`drop${over ? " over" : ""}`}
@@ -837,12 +959,313 @@ function Editor({ product, onClose, onChanged }) {
   );
 }
 
+/* ── امسح وصوّر ────────────────────────────────────────────────────
+   أسرع طريقة: تمسكي أي قطعة، تمسحي باركودها، فالسيستم يعرف الموديل
+   واللون لوحده ويفتح التصوير عليهم. بيشتغل بثلاث طرق:
+     • كاميرا الموبايل (أندرويد/كروم — BarcodeDetector)
+     • قارئ الباركود العادي (بيكتب في الخانة ويدوس Enter)
+     • كتابة الباركود أو الـSKU بالإيد */
+function ScanPanel({ onResolved }) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [camOn, setCamOn] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const inputRef = useRef(null);
+  const canDetect = typeof window !== "undefined" && "BarcodeDetector" in window;
+
+  const stopCam = () => {
+    try { (streamRef.current?.getTracks() || []).forEach((t) => t.stop()); } catch (e) {}
+    streamRef.current = null; setCamOn(false);
+  };
+  useEffect(() => () => stopCam(), []);
+
+  const lookup = async (raw) => {
+    const v = toLatinDigits(String(raw || "")).trim();
+    if (!v || busy) return;
+    setBusy(true); setMsg("");
+    try {
+      const res = await rpc("shop_fn_photo_resolve", { p_inputs: [v] });
+      const r = Array.isArray(res) ? res[0] : null;
+      if (r && r.product) { stopCam(); setCode(""); onResolved(r.product, r.color); }
+      else if (r && r.candidates) setMsg("فيه أكتر من موديل بالـSKU ده — اكتبيه بالظبط زي ما هو (حروف كبيرة/صغيرة)");
+      else setMsg(`«${v}» مش متسجّل — جرّبي باركود قطعة تانية أو اكتبي الـSKU`);
+    } catch (e) { setMsg(e.message || "حصل خطأ"); }
+    finally { setBusy(false); inputRef.current && inputRef.current.focus(); }
+  };
+
+  const startCam = async () => {
+    setMsg("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream; setCamOn(true);
+      await new Promise((r) => setTimeout(r, 50));
+      const v = videoRef.current; if (!v) return;
+      v.srcObject = stream; await v.play();
+      const det = new window.BarcodeDetector({ formats: ["code_128", "ean_13", "ean_8", "upc_a", "code_39", "itf", "qr_code"] });
+      const tick = async () => {
+        if (!streamRef.current) return;
+        try {
+          const found = await det.detect(v);
+          if (found && found[0] && found[0].rawValue) { lookup(found[0].rawValue); return; }
+        } catch (e) {}
+        setTimeout(tick, 250);
+      };
+      tick();
+    } catch (e) {
+      stopCam();
+      setMsg("مقدرناش نفتح الكاميرا — اسمحي للصفحة بالكاميرا، أو استخدمي القارئ أو اكتبي الرقم");
+    }
+  };
+
+  return (
+    <div className="panel">
+      <h2>امسحي باركود أي قطعة</h2>
+      <p className="sub" style={{ marginBottom: 12 }}>
+        السيستم بيعرف الموديل واللون من الباركود، ويفتح لك التصوير عليهم على طول.
+      </p>
+      <form className="search-row" onSubmit={(e) => { e.preventDefault(); lookup(code); }}>
+        <input ref={inputRef} autoFocus inputMode="text" value={code} disabled={busy}
+               onChange={(e) => setCode(e.target.value)}
+               placeholder="امسحي بالقارئ، أو اكتبي الباركود / الـSKU" />
+        <button className="btn-primary" type="submit" disabled={busy || !code.trim()}>
+          {busy ? "…" : "افتح"}</button>
+      </form>
+      {canDetect ? (
+        camOn ? (
+          <div className="cam">
+            <video ref={videoRef} playsInline muted />
+            <div className="cam-frame" />
+            <button className="btn-ghost" onClick={stopCam}>اقفل الكاميرا</button>
+          </div>
+        ) : (
+          <button className="btn-primary cam-btn" onClick={startCam}>📷 امسحي بكاميرا الموبايل</button>
+        )
+      ) : (
+        <div className="tip">
+          الجهاز ده مش بيقرا باركود من الكاميرا (آيفون مثلًا) — استخدمي قارئ الباركود
+          أو اكتبي الرقم اللي تحت الباركود، والباقي زي ما هو.
+        </div>
+      )}
+      {msg && <div className="warnbox" style={{ marginTop: 12 }}>{msg}</div>}
+    </div>
+  );
+}
+
+/* ── الرفع الجماعي ───────────────────────────────────────────────────
+   ترمي صور كتير مرة واحدة (أو مجلد كامل)، والسيستم يوزّعها لوحده:
+     • اسم الملف: «15-اسود.jpg» ← موديل SKU 15، لون أسود
+     • اسم المجلد: مجلد «15» جواه «اسود.jpg» ← نفس النتيجة
+     • اسم الملف = اسم الموديل، أو باركود قطعة
+   اللي ما يتعرّفش بيفضل في الجدول تختاري له الموديل بإيدك. ومفيش رفع
+   غير لما تراجعي وتدوسي «ارفع». */
+function BulkPanel({ products, onDone }) {
+  const [rows, setRows] = useState([]);
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
+  const [only, setOnly] = useState("");     // فلتر الجدول: "" | "ok" | "missing"
+  const fileRef = useRef(null);
+  const dirRef = useRef(null);
+  const byId = new Map(products.map((p) => [p.id, p]));
+
+  const rowsRef = useRef([]);
+  useEffect(() => { rowsRef.current = rows; }, [rows]);
+  useEffect(() => () => rowsRef.current.forEach((r) => URL.revokeObjectURL(r.preview)), []);
+
+  const addFiles = async (fileList) => {
+    const incoming = Array.from(fileList || []).filter(Boolean);
+    const usable = incoming.filter((f) => OK_TYPES[f.type]);
+    const bad = incoming.length - usable.length;
+    if (bad) toast(`${bad} ملف مش صورة مدعومة (JPG/PNG/WEBP) — اتخطّوا`, "err");
+    if (!usable.length) return;
+    const seen = new Set(rows.map((r) => `${r.file.name}|${r.file.size}`));
+    const fresh = usable.filter((f) => !seen.has(`${f.name}|${f.size}`)).map((f) => {
+      const rel = f.webkitRelativePath || "";
+      const parts = rel.split("/").filter(Boolean);
+      return { key: crypto.randomUUID(), file: f, preview: URL.createObjectURL(f),
+               folder: parts.length > 1 ? parts[parts.length - 2] : "",
+               product: null, color: "", how: "", status: "ready", error: "", cands: null };
+    });
+    if (!fresh.length) { toast("الصور دي موجودة في القايمة أصلًا", "err"); return; }
+    setBusy(true);
+    try {
+      // ١) اسم الملف  ٢) اللي ما اتعرّفش: اسم المجلد + اسم الملف
+      const resolved = new Map();
+      for (let i = 0; i < fresh.length; i += 200) {
+        const part = fresh.slice(i, i + 200);
+        const res = await rpc("shop_fn_photo_resolve", { p_inputs: part.map((r) => r.file.name) });
+        (res || []).forEach((x, n) => resolved.set(part[n].key, x));
+      }
+      const retry = fresh.filter((r) => !(resolved.get(r.key) || {}).product && r.folder);
+      for (let i = 0; i < retry.length; i += 200) {
+        const part = retry.slice(i, i + 200);
+        const res = await rpc("shop_fn_photo_resolve",
+          { p_inputs: part.map((r) => `${r.folder} ${r.file.name}`) });
+        (res || []).forEach((x, n) => { if (x && x.product) resolved.set(part[n].key, { ...x, kind: "folder" }); });
+      }
+      const ready = fresh.map((r) => {
+        const x = resolved.get(r.key) || {};
+        const prod = x.product ? (byId.get(x.product.id) || x.product) : null;
+        const color = x.color || (prod ? guessColor(r.file.name, prod.colors || []) : null) || "";
+        return { ...r, product: prod, color: color || "", how: x.kind || "none", cands: x.candidates || null };
+      });
+      setRows((t) => [...t, ...ready]);
+      const okN = ready.filter((r) => r.product).length;
+      toast(`اتعرّف ${okN} من ${ready.length} صورة تلقائيًا${okN < ready.length ? " — الباقي اختاري موديله" : " ✓"}`,
+            okN < ready.length ? "" : "ok");
+    } catch (e) { toast(e.message || "تعذّر التعرّف على الصور", "err"); }
+    finally { setBusy(false); }
+  };
+
+  const setRow = (key, patch) => setRows((t) => t.map((r) => r.key === key ? { ...r, ...patch } : r));
+  const dropRow = (key) => setRows((t) => {
+    const r = t.find((x) => x.key === key); if (r) URL.revokeObjectURL(r.preview);
+    return t.filter((x) => x.key !== key);
+  });
+
+  const missing = rows.filter((r) => !r.product).length;
+  const noColor = rows.filter((r) => r.product && (r.product.colors || []).length && !r.color).length;
+  const shown = only === "ok" ? rows.filter((r) => r.product) : only === "missing" ? rows.filter((r) => !r.product) : rows;
+
+  const uploadAll = async () => {
+    const todo = rows.filter((r) => r.product && r.status !== "done");
+    if (!todo.length || busy) return;
+    if (noColor > 0 && !confirm(`${noColor} صورة من غير لون — هتترفع «عامة» لكل ألوان الموديل. نكمّل؟`)) return;
+    setBusy(true); setDone(0);
+    await runPool(todo, 3, async (row) => {
+      try {
+        const prep = await prepareImage(row.file);
+        const { fullPath, sizes } = await uploadShot(row.product.id, prep);
+        const res = await rpc("shop_fn_attach_product_image", {
+          p_product_id: row.product.id, p_path: fullPath,
+          p_color: row.color && row.color !== GENERIC ? row.color : null,
+          p_sizes: Object.keys(sizes).length ? sizes : null,
+          p_original_name: row.file.name,
+        });
+        if (!res || res.ok === false) throw new Error((res && res.error) || "فشل الحفظ");
+        setRow(row.key, { status: "done", error: "" });
+      } catch (e) {
+        setRow(row.key, { status: "error", error: e.message || "فشل الرفع" });
+      } finally { setDone((d) => d + 1); }
+    });
+    setBusy(false);
+    setRows((t) => {
+      t.filter((r) => r.status === "done").forEach((r) => URL.revokeObjectURL(r.preview));
+      const left = t.filter((r) => r.status !== "done");
+      const up = t.length - left.length;
+      toast(left.some((r) => r.status === "error")
+        ? `اترفع ${up} — فضل ${left.filter((r) => r.status === "error").length} فيهم مشكلة` : `اترفعت ${up} صورة ✓`,
+        left.some((r) => r.status === "error") ? "err" : "ok");
+      return left;
+    });
+    onDone && onDone();
+  };
+
+  return (
+    <div className="panel">
+      <h2>رفع جماعي — السيستم يوزّع الصور لوحده</h2>
+      <div className="tip">
+        سمّي الصورة بالـSKU واللون: <b>15-اسود.jpg</b> أو <b>16X بني 2.jpg</b>.
+        أو اعملي مجلد باسم الـSKU (مثلًا <b>15</b>) وجواه الصور باسم اللون.
+        ولو الاسم مش مفهوم، هتختاري الموديل بإيدك قبل الرفع.
+      </div>
+      <div className={`drop${over ? " over" : ""}`}
+           onClick={() => fileRef.current && fileRef.current.click()}
+           onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+           onDragLeave={() => setOver(false)}
+           onDrop={async (e) => { e.preventDefault(); setOver(false); addFiles(await filesFromDrop(e.dataTransfer)); }}>
+        <p className="big">{busy && !rows.length ? "بيتعرّف على الصور…" : "اسحبي الصور أو المجلدات هنا"}</p>
+        <p className="small">أو اضغطي للاختيار من الجهاز</p>
+        <button className="btn-ghost btn-sm" style={{ marginTop: 10 }}
+                onClick={(e) => { e.stopPropagation(); dirRef.current && dirRef.current.click(); }}>
+          اختاري مجلد كامل</button>
+      </div>
+      <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple style={{ display: "none" }}
+             onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+      <input ref={dirRef} type="file" multiple webkitdirectory="" directory="" style={{ display: "none" }}
+             onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+
+      {rows.length > 0 && (
+        <>
+          <div className="filters">
+            {[["", `الكل (${rows.length})`], ["ok", `اتعرّفت (${rows.length - missing})`],
+              ["missing", `محتاجة موديل (${missing})`]].map(([k, label]) => (
+              <button key={k} className={`fchip${only === k ? " on" : ""}`} onClick={() => setOnly(k)}>{label}</button>
+            ))}
+          </div>
+          <div className="brows">
+            {shown.map((r) => (
+              <div key={r.key} className={`brow${!r.product ? " miss" : ""}${r.status === "error" ? " err" : ""}`}>
+                <img src={r.preview} alt="" />
+                <div className="binfo">
+                  <div className="fname" title={r.file.webkitRelativePath || r.file.name}>
+                    {r.folder ? `${r.folder}/` : ""}{r.file.name}</div>
+                  {r.product ? (
+                    <div className="bprod">
+                      <span className="sku">{r.product.base_sku}</span> {r.product.name}
+                      <button className="link" disabled={busy}
+                              onClick={() => setRow(r.key, { product: null, color: "" })}>غيّر</button>
+                    </div>
+                  ) : r.cands ? (
+                    <select value="" onChange={(e) => { const p = byId.get(e.target.value); if (p) setRow(r.key, { product: p, cands: null, color: guessColor(r.file.name, p.colors || []) || "" }); }}>
+                      <option value="">أكتر من موديل بنفس الـSKU — اختاري…</option>
+                      {r.cands.map((c) => <option key={c.id} value={c.id}>{c.base_sku} — {c.name}</option>)}
+                    </select>
+                  ) : (
+                    <ModelPicker products={products}
+                                 onPick={(p) => setRow(r.key, { product: p, how: "manual", color: guessColor(r.file.name, p.colors || []) || "" })} />
+                  )}
+                  {r.product && (r.product.colors || []).length > 0 && (
+                    <select value={r.color} disabled={busy} onChange={(e) => setRow(r.key, { color: e.target.value })}>
+                      <option value="">— اللون —</option>
+                      {r.product.colors.map((c) => <option key={c} value={c}>{c}</option>)}
+                      <option value={GENERIC}>عامة (كل الألوان)</option>
+                    </select>
+                  )}
+                  {r.status === "error" && <div className="bad-inline">{r.error}</div>}
+                </div>
+                {!busy && <button className="x-inline" onClick={() => dropRow(r.key)} aria-label="شيل">✕</button>}
+              </div>
+            ))}
+          </div>
+          {busy && rows.some((r) => r.product) && (
+            <div className="tprog"><span style={{ width: `${Math.round((done / Math.max(1, rows.filter((r) => r.product).length)) * 100)}%` }} /></div>
+          )}
+          <div className="stickybar">
+            <button className="btn-primary" onClick={uploadAll} disabled={busy || rows.length === missing}>
+              {busy ? `بيرفع… ${done}` : `ارفع ${rows.length - missing} صورة${missing ? ` (و${missing} لسه من غير موديل)` : ""}`}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ── تنضيف التخزين ───────────────────────────────────────────────────
+   أي ملف في التخزين مفيش صورة بتشاور عليه (رفع اتقطع، أو صورة اتمسحت)
+   بيتشال هنا بهدوء — عشان المساحة المجانية ما تتاكلش. السيرفر بيستثني
+   أي ملف عمره أقل من ١٠ دقايق، فمستحيل يلمس رفع شغال. */
+async function cleanOrphans() {
+  try {
+    const list = await rpc("shop_fn_photo_orphans", {});
+    if (!Array.isArray(list) || !list.length) return 0;
+    for (let i = 0; i < list.length; i += 100) await deleteObjects(list.slice(i, i + 100));
+    try { window.__omraaLog && window.__omraaLog("photos.orphans_cleaned", { message: `${list.length} files` }, { severity: "info" }); } catch (e) {}
+    return list.length;
+  } catch (e) { return 0; }
+}
+
 function App() {
   const [products, setProducts] = useState(null);
-  const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState("none");
+  const [prefs, setPrefs] = useState(() => ({ mode: "grid", tab: "none", sort: "need", ...loadPrefs() }));
   const [open, setOpen] = useState(null);
   const [error, setError] = useState("");
+  const [barcodeHit, setBarcodeHit] = useState(null);
+
+  const setPref = (k, v) => setPrefs((p) => { const n = { ...p, [k]: v }; savePrefs(n); return n; });
 
   const load = useCallback(async () => {
     try {
@@ -853,24 +1276,58 @@ function App() {
     } catch (e) { setError(e.message || "تعذّر تحميل المنتجات"); }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); cleanOrphans(); }, [load]);
 
-  const openProduct = async (p) => {
+  // البحث بباركود: الأرقام الطويلة بتتدوّر على السيرفر (الباركود مش محمّل محليًا)
+  useEffect(() => {
+    const v = toLatinDigits(prefs.q || "").trim();
+    if (!/^[0-9]{6,20}$/.test(v)) { setBarcodeHit(null); return; }
+    let live = true;
+    rpc("shop_fn_admin_photo_queue", { p_q: v })
+      .then((rows) => { if (live) setBarcodeHit(new Set((rows || []).map((r) => r.id))); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [prefs.q]);
+
+  const openProduct = async (p, color) => {
     try {
+      const full = (products || []).find((x) => x.id === p.id) || p;
       const imgs = await rpc("shop_fn_admin_product_images", { p_product_id: p.id });
-      setOpen({ ...p, images: imgs || [] });
+      setOpen({ ...full, images: imgs || [], initialColor: color || null });
     } catch (e) { toast(e.message, "err"); }
   };
 
   if (error) return <div className="center"><p style={{ color: "var(--danger)" }}>{error}</p></div>;
   if (!products) return <div className="center"><div className="spin-big" /><p className="muted">جارٍ التحميل…</p></div>;
 
+  const withPhotos = products.filter((p) => p.photo_count > 0).length;
+  const mode = prefs.mode || "grid";
+
   return (
     <>
-      <ProductGrid products={products} filter={filter} setFilter={setFilter}
-                   tab={tab} setTab={setTab} onOpen={openProduct} />
+      <div className="stats">
+        <div><b>{products.length}</b><span>موديل</span></div>
+        <div><b>{withPhotos}</b><span>عليه صور</span></div>
+        <div><b>{products.length - withPhotos}</b><span>محتاج صور</span></div>
+        <div><b>{products.filter((p) => p.is_published).length}</b><span>ظاهر على الموقع</span></div>
+      </div>
+
+      <div className="modes" role="tablist">
+        {[["grid", "🗂️ الموديلات"], ["scan", "📷 امسحي وصوّري"], ["bulk", "⬆️ رفع جماعي"]].map(([k, label]) => (
+          <button key={k} role="tab" aria-selected={mode === k} className={`mode${mode === k ? " on" : ""}`}
+                  onClick={() => setPref("mode", k)}>{label}</button>
+        ))}
+      </div>
+
+      {mode === "grid" && (
+        <ProductGrid products={products} prefs={prefs} setPref={setPref}
+                     barcodeHit={barcodeHit} onOpen={(p) => openProduct(p)} />
+      )}
+      {mode === "scan" && <ScanPanel onResolved={(p, color) => openProduct(p, color)} />}
+      {mode === "bulk" && <BulkPanel products={products} onDone={load} />}
+
       {open && (
-        <Editor product={open}
+        <Editor product={open} initialColor={open.initialColor}
                 onClose={() => { setOpen(null); load(); }}
                 onChanged={load} />
       )}

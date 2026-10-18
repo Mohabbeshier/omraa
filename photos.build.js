@@ -376,64 +376,214 @@ function toast(msg, kind) {
 }
 const GENERIC = "__generic__";
 
+/* ── تفضيلات الفلاتر بتتحفظ على الجهاز ──────────────────────────────
+   localStorage ممكن يرمي (وضع خاص أو مقفول) — ساعتها نكمل بالافتراضي. */
+const PREF_KEY = "omraa.photos.prefs.v1";
+function loadPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(PREF_KEY) || "{}") || {};
+  } catch (e) {
+    return {};
+  }
+}
+function savePrefs(p) {
+  try {
+    localStorage.setItem(PREF_KEY, JSON.stringify(p));
+  } catch (e) {}
+}
+
+/* أرقام عربي → إنجليزي، وتطبيع الحروف للبحث المحلي */
+const toLatinDigits = s => String(s || "").replace(/[٠-٩]/g, d => "٠١٢٣٤٥٦٧٨٩".indexOf(d)).replace(/[۰-۹]/g, d => "۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+const normQ = s => toLatinDigits(s).trim().toLowerCase().replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/[ؤ]/g, "و");
+function stateOf(p) {
+  const total = (p.colors || []).length;
+  const covered = total ? p.colors.filter(c => (p.by_color || {})[c] > 0).length : p.photo_count > 0 ? 1 : 0;
+  const target = total || 1;
+  if (p.photo_count === 0) return {
+    key: "none",
+    covered: 0,
+    target
+  };
+  if (covered < target) return {
+    key: "partial",
+    covered,
+    target
+  };
+  return {
+    key: "done",
+    covered,
+    target
+  };
+}
+
+/* ── اختيار موديل بالاسم أو الـSKU ───────────────────────────────────
+   بيتستخدم في الرفع الجماعي لما اسم الملف ما يتعرّفش. */
+function ModelPicker({
+  products,
+  onPick,
+  autoFocus,
+  placeholder
+}) {
+  const [q, setQ] = useState("");
+  const n = normQ(q);
+  // الترتيب: الـSKU بالظبط أولًا، بعده اللي بيبدأ بيه، وبعده الاسم
+  const rank = p => normQ(p.base_sku) === n ? 0 : normQ(p.base_sku).startsWith(n) ? 1 : normQ(p.name).startsWith(n) ? 2 : normQ(p.name).includes(n) ? 3 : 9;
+  const hits = n ? products.map(p => [rank(p), p]).filter(([r]) => r < 9).sort((a, b) => a[0] - b[0] || String(a[1].base_sku).length - String(b[1].base_sku).length).slice(0, 8).map(([, p]) => p) : [];
+  return /*#__PURE__*/React.createElement("div", {
+    className: "picker"
+  }, /*#__PURE__*/React.createElement("input", {
+    autoFocus: autoFocus,
+    value: q,
+    onChange: e => setQ(e.target.value),
+    placeholder: placeholder || "اكتبي اسم الموديل أو الـSKU…"
+  }), hits.length > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "picker-list"
+  }, hits.map(p => /*#__PURE__*/React.createElement("button", {
+    key: p.id,
+    type: "button",
+    className: "picker-row",
+    onClick: () => {
+      onPick(p);
+      setQ("");
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "sku"
+  }, p.base_sku), /*#__PURE__*/React.createElement("span", {
+    className: "pname"
+  }, p.name), /*#__PURE__*/React.createElement("span", {
+    className: "pcat"
+  }, p.category || "")))));
+}
+
 /* ── قائمة المنتجات ───────────────────────────────────────────────
-   الترتيب مقصود: اللي محتاج صور فوق. ده هو الطابور، مش قائمة تصفّح. */
+   الترتيب مقصود: اللي محتاج صور فوق. ده هو الطابور، مش قائمة تصفّح.
+   الفلاتر: حالة الصور، القسم، الظهور على الموقع، المخزون، اللون، والترتيب.
+   البحث بالاسم أو الـSKU أو أي باركود للموديل. */
 function ProductGrid({
   products,
   onOpen,
-  filter,
-  setFilter,
-  tab,
-  setTab
+  prefs,
+  setPref,
+  barcodeHit
 }) {
-  const q = filter.trim();
-  const stateOf = p => {
-    const total = (p.colors || []).length;
-    const covered = total ? p.colors.filter(c => (p.by_color || {})[c] > 0).length : p.photo_count > 0 ? 1 : 0;
-    const target = total || 1;
-    if (p.photo_count === 0) return {
-      key: "none",
-      covered: 0,
-      target
-    };
-    if (covered < target) return {
-      key: "partial",
-      covered,
-      target
-    };
-    return {
-      key: "done",
-      covered,
-      target
-    };
-  };
+  const {
+    q = "",
+    tab = "none",
+    cat = "",
+    pub = "",
+    stock = "",
+    color = "",
+    sort = "need"
+  } = prefs;
+  const n = normQ(q);
   const withState = products.map(p => ({
     ...p,
     st: stateOf(p)
   }));
+  const cats = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+  const allColors = [...new Set(products.flatMap(p => p.colors || []))].sort();
+
+  // الفلاتر كلها ماعدا الحالة — عشان أرقام الحالة تبقى صح للاختيار الحالي
+  let base = withState;
+  if (cat) base = base.filter(p => p.category === cat);
+  if (pub === "on") base = base.filter(p => p.is_published);
+  if (pub === "off") base = base.filter(p => !p.is_published);
+  if (stock === "in") base = base.filter(p => (p.in_stock || 0) > 0);
+  if (stock === "out") base = base.filter(p => !(p.in_stock > 0));
+  if (color) base = base.filter(p => (p.colors || []).includes(color));
+  if (n) base = base.filter(p => normQ(p.name).includes(n) || normQ(p.base_sku) === n || barcodeHit && barcodeHit.has(p.id));
   const counts = {
-    none: withState.filter(p => p.st.key === "none").length,
-    partial: withState.filter(p => p.st.key === "partial").length,
-    done: withState.filter(p => p.st.key === "done").length
+    none: base.filter(p => p.st.key === "none").length,
+    partial: base.filter(p => p.st.key === "partial").length,
+    done: base.filter(p => p.st.key === "done").length
   };
-  let list = withState;
-  if (tab !== "all") list = list.filter(p => p.st.key === tab);
-  if (q) list = list.filter(p => (p.name || "").includes(q));
+  let list = tab === "all" ? base : base.filter(p => p.st.key === tab);
+  const by = {
+    need: (a, b) => (a.st.key === "none" ? 0 : a.st.key === "partial" ? 1 : 2) - (b.st.key === "none" ? 0 : b.st.key === "partial" ? 1 : 2) || b.is_published - a.is_published || (b.in_stock || 0) - (a.in_stock || 0),
+    stock: (a, b) => (b.in_stock || 0) - (a.in_stock || 0),
+    newest: (a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")),
+    name: (a, b) => String(a.name).localeCompare(String(b.name), "ar"),
+    sku: (a, b) => String(a.base_sku).localeCompare(String(b.base_sku), "en", {
+      numeric: true
+    })
+  };
+  list = [...list].sort(by[sort] || by.need);
+  const active = [cat, pub, stock, color].filter(Boolean).length;
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "search-row"
   }, /*#__PURE__*/React.createElement("input", {
-    placeholder: "دوّري على موديل…",
-    value: filter,
-    onChange: e => setFilter(e.target.value)
-  })), /*#__PURE__*/React.createElement("div", {
+    placeholder: "\u062F\u0648\u0651\u0631\u064A \u0628\u0627\u0644\u0627\u0633\u0645 \u0623\u0648 \u0627\u0644\u0640SKU \u0623\u0648 \u0627\u0645\u0633\u062D\u064A \u0628\u0627\u0631\u0643\u0648\u062F\u2026",
+    value: q,
+    onChange: e => setPref("q", e.target.value)
+  }), q && /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost btn-sm",
+    onClick: () => setPref("q", "")
+  }, "\u0645\u0633\u062D")), /*#__PURE__*/React.createElement("div", {
+    className: "fbar"
+  }, /*#__PURE__*/React.createElement("select", {
+    value: cat,
+    onChange: e => setPref("cat", e.target.value),
+    "aria-label": "\u0627\u0644\u0642\u0633\u0645"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u0643\u0644 \u0627\u0644\u0623\u0642\u0633\u0627\u0645"), cats.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("select", {
+    value: pub,
+    onChange: e => setPref("pub", e.target.value),
+    "aria-label": "\u0627\u0644\u0638\u0647\u0648\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0642\u0639"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u0627\u0644\u0645\u0648\u0642\u0639: \u0627\u0644\u0643\u0644"), /*#__PURE__*/React.createElement("option", {
+    value: "on"
+  }, "\u0638\u0627\u0647\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0642\u0639"), /*#__PURE__*/React.createElement("option", {
+    value: "off"
+  }, "\u0645\u062E\u0641\u064A \u0639\u0646 \u0627\u0644\u0645\u0648\u0642\u0639")), /*#__PURE__*/React.createElement("select", {
+    value: stock,
+    onChange: e => setPref("stock", e.target.value),
+    "aria-label": "\u0627\u0644\u0645\u062E\u0632\u0648\u0646"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u0627\u0644\u0645\u062E\u0632\u0648\u0646: \u0627\u0644\u0643\u0644"), /*#__PURE__*/React.createElement("option", {
+    value: "in"
+  }, "\u0641\u064A\u0647 \u0645\u062E\u0632\u0648\u0646"), /*#__PURE__*/React.createElement("option", {
+    value: "out"
+  }, "\u062E\u0644\u0635\u0627\u0646")), /*#__PURE__*/React.createElement("select", {
+    value: color,
+    onChange: e => setPref("color", e.target.value),
+    "aria-label": "\u0627\u0644\u0644\u0648\u0646"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u0643\u0644 \u0627\u0644\u0623\u0644\u0648\u0627\u0646"), allColors.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c))), /*#__PURE__*/React.createElement("select", {
+    value: sort,
+    onChange: e => setPref("sort", e.target.value),
+    "aria-label": "\u0627\u0644\u062A\u0631\u062A\u064A\u0628"
+  }, /*#__PURE__*/React.createElement("option", {
+    value: "need"
+  }, "\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u0627\u0644\u0645\u062D\u062A\u0627\u062C \u0635\u0648\u0631 \u0627\u0644\u0623\u0648\u0644"), /*#__PURE__*/React.createElement("option", {
+    value: "stock"
+  }, "\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u0627\u0644\u0623\u0643\u062A\u0631 \u0645\u062E\u0632\u0648\u0646"), /*#__PURE__*/React.createElement("option", {
+    value: "newest"
+  }, "\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u0627\u0644\u0623\u062D\u062F\u062B"), /*#__PURE__*/React.createElement("option", {
+    value: "name"
+  }, "\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u0627\u0644\u0627\u0633\u0645"), /*#__PURE__*/React.createElement("option", {
+    value: "sku"
+  }, "\u0627\u0644\u062A\u0631\u062A\u064A\u0628: \u0627\u0644\u0640SKU")), active > 0 && /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost btn-sm",
+    onClick: () => {
+      ["cat", "pub", "stock", "color"].forEach(k => setPref(k, ""));
+    }
+  }, "\u0634\u064A\u0644 \u0627\u0644\u0641\u0644\u0627\u062A\u0631 (", active, ")")), /*#__PURE__*/React.createElement("div", {
     className: "filters"
-  }, [["none", "محتاج صور", counts.none], ["partial", "ناقص ألوان", counts.partial], ["done", "تمام", counts.done], ["all", "الكل", withState.length]].map(([k, label, n]) => /*#__PURE__*/React.createElement("button", {
+  }, [["none", "محتاج صور", counts.none], ["partial", "ناقص ألوان", counts.partial], ["done", "تمام", counts.done], ["all", "الكل", base.length]].map(([k, label, c]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     className: `fchip${tab === k ? " on" : ""}`,
-    onClick: () => setTab(k)
-  }, label, " (", n, ")"))), tab === "none" && counts.none > 0 && /*#__PURE__*/React.createElement("div", {
-    className: "queue-banner"
-  }, "ابدئي بـ", /*#__PURE__*/React.createElement("strong", null, "خمسة"), " بس — أحسن خمس موديلات عندك. الموقع بيبيع بالصورة، والموديل من غير صورة زي ما يكون مش موجود."), /*#__PURE__*/React.createElement("div", {
+    onClick: () => setPref("tab", k)
+  }, label, " (", c, ")"))), /*#__PURE__*/React.createElement("div", {
     className: "grid"
   }, list.map(p => {
     const pct = Math.round(p.st.covered / p.st.target * 100);
@@ -445,23 +595,25 @@ function ProductGrid({
       className: "thumb"
     }, p.st.key === "none" && /*#__PURE__*/React.createElement("span", {
       className: "needs"
-    }, "محتاج صور"), !p.is_published && /*#__PURE__*/React.createElement("span", {
+    }, "\u0645\u062D\u062A\u0627\u062C \u0635\u0648\u0631"), !p.is_published && /*#__PURE__*/React.createElement("span", {
       className: "pill-hidden"
-    }, "مخفي"), p.cover ? /*#__PURE__*/React.createElement("img", {
+    }, "\u0645\u062E\u0641\u064A"), p.cover ? /*#__PURE__*/React.createElement("img", {
       src: p.cover_thumb || p.cover,
       alt: "",
       loading: "lazy"
     }) : /*#__PURE__*/React.createElement("span", {
       className: "no-img"
-    }, "بلا صورة"), p.photo_count > 0 && /*#__PURE__*/React.createElement("span", {
+    }, "\u0628\u0644\u0627 \u0635\u0648\u0631\u0629"), p.photo_count > 0 && /*#__PURE__*/React.createElement("span", {
       className: "ph-count"
-    }, p.photo_count, " صورة")), /*#__PURE__*/React.createElement("div", {
+    }, p.photo_count, " \u0635\u0648\u0631\u0629")), /*#__PURE__*/React.createElement("div", {
       className: "body"
     }, /*#__PURE__*/React.createElement("p", {
       className: "name"
     }, p.name), /*#__PURE__*/React.createElement("p", {
       className: "meta"
-    }, (p.colors || []).length ? `${p.st.covered} من ${p.st.target} ألوان` : p.photo_count ? `${p.photo_count} صورة` : "لسه"), /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "sku"
+    }, p.base_sku), " · ", (p.colors || []).length ? `${p.st.covered}/${p.st.target} ألوان` : p.photo_count ? `${p.photo_count} صورة` : "لسه", " · ", p.in_stock || 0, " \u0642\u0637\u0639\u0629"), /*#__PURE__*/React.createElement("div", {
       className: "bar"
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -473,7 +625,7 @@ function ProductGrid({
     style: {
       gridColumn: "1/-1"
     }
-  }, "مفيش موديل هنا")));
+  }, "\u0645\u0641\u064A\u0634 \u0645\u0648\u062F\u064A\u0644 \u0628\u0627\u0644\u0641\u0644\u0627\u062A\u0631 \u062F\u064A")));
 }
 
 /* ── محرّر صور منتج واحد ──────────────────────────────────────────
@@ -483,11 +635,14 @@ function ProductGrid({
 function Editor({
   product,
   onClose,
-  onChanged
+  onChanged,
+  initialColor
 }) {
   const [images, setImages] = useState(product.images || []);
   const colors = product.colors || [];
-  const [sel, setSel] = useState(colors.length === 1 ? colors[0] : null);
+  // لو جاي من مسح باركود، اللون معروف — نفتح عليه على طول
+  const [sel, setSel] = useState(initialColor && colors.includes(initialColor) ? initialColor : colors.length === 1 ? colors[0] : null);
+  const camRef = useRef(null);
   const [tray, setTray] = useState([]); // الصور المستنية الرفع
   const [uploading, setUploading] = useState(false);
   const [done, setDone] = useState(0);
@@ -766,11 +921,13 @@ function Editor({
     className: "sheet-head"
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("h2", null, product.name), /*#__PURE__*/React.createElement("p", {
     className: "sub"
-  }, product.category || "—")), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "sku"
+  }, "SKU ", product.base_sku || "—"), " · ", product.category || "—", sel && sel !== GENERIC ? /*#__PURE__*/React.createElement(React.Fragment, null, " \xB7 \u0627\u0644\u0644\u0648\u0646: ", /*#__PURE__*/React.createElement("strong", null, sel)) : null)), /*#__PURE__*/React.createElement("button", {
     className: "sheet-close",
     onClick: onClose,
     disabled: uploading
-  }, "✕")), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
     className: `pubbar${published ? " on" : ""}`
   }, /*#__PURE__*/React.createElement("div", {
     className: "pubtxt"
@@ -781,7 +938,7 @@ function Editor({
     title: !published && images.length === 0 ? "محتاج صورة واحدة على الأقل" : ""
   }, publishing ? "…" : published ? "إخفاء من الموقع" : "انشر على الموقع")), colors.length > 0 ? /*#__PURE__*/React.createElement(React.Fragment, null, missing.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "warnbox"
-  }, "لسه من غير صور: ", /*#__PURE__*/React.createElement("strong", null, missing.join("، ")), ". العميلة لما تختار لون من دول هتشوف صورة لون تاني."), /*#__PURE__*/React.createElement("div", {
+  }, "\u0644\u0633\u0647 \u0645\u0646 \u063A\u064A\u0631 \u0635\u0648\u0631: ", /*#__PURE__*/React.createElement("strong", null, missing.join("، ")), ". \u0627\u0644\u0639\u0645\u064A\u0644\u0629 \u0644\u0645\u0627 \u062A\u062E\u062A\u0627\u0631 \u0644\u0648\u0646 \u0645\u0646 \u062F\u0648\u0644 \u0647\u062A\u0634\u0648\u0641 \u0635\u0648\u0631\u0629 \u0644\u0648\u0646 \u062A\u0627\u0646\u064A."), /*#__PURE__*/React.createElement("div", {
     className: "clist"
   }, colors.map(c => {
     const n = countFor(c);
@@ -796,7 +953,7 @@ function Editor({
       alt: ""
     }) : /*#__PURE__*/React.createElement("span", {
       className: "cthumb empty"
-    }, "＋"), /*#__PURE__*/React.createElement("span", {
+    }, "\uFF0B"), /*#__PURE__*/React.createElement("span", {
       className: "cname"
     }, c), /*#__PURE__*/React.createElement("span", {
       className: `ccount${n ? " has" : ""}`
@@ -810,13 +967,29 @@ function Editor({
     alt: ""
   }) : /*#__PURE__*/React.createElement("span", {
     className: "cthumb empty"
-  }, "＋"), /*#__PURE__*/React.createElement("span", {
+  }, "\uFF0B"), /*#__PURE__*/React.createElement("span", {
     className: "cname"
-  }, "صور عامة (كل الألوان)"), /*#__PURE__*/React.createElement("span", {
+  }, "\u0635\u0648\u0631 \u0639\u0627\u0645\u0629 (\u0643\u0644 \u0627\u0644\u0623\u0644\u0648\u0627\u0646)"), /*#__PURE__*/React.createElement("span", {
     className: `ccount${countFor(GENERIC) ? " has" : ""}`
   }, countFor(GENERIC) ? `${countFor(GENERIC)} صورة` : "لسه")))) : /*#__PURE__*/React.createElement("div", {
     className: "tip"
-  }, "الموديل ده مسجّل من غير ألوان في المخزون، فالصور هتبقى عامة لكل الموديل."), /*#__PURE__*/React.createElement("div", {
+  }, "\u0627\u0644\u0645\u0648\u062F\u064A\u0644 \u062F\u0647 \u0645\u0633\u062C\u0651\u0644 \u0645\u0646 \u063A\u064A\u0631 \u0623\u0644\u0648\u0627\u0646 \u0641\u064A \u0627\u0644\u0645\u062E\u0632\u0648\u0646\u060C \u0641\u0627\u0644\u0635\u0648\u0631 \u0647\u062A\u0628\u0642\u0649 \u0639\u0627\u0645\u0629 \u0644\u0643\u0644 \u0627\u0644\u0645\u0648\u062F\u064A\u0644."), /*#__PURE__*/React.createElement("button", {
+    className: "btn-primary cam-btn",
+    disabled: uploading,
+    onClick: () => camRef.current && camRef.current.click()
+  }, "\uD83D\uDCF7 \u0635\u0648\u0651\u0631\u064A \u062F\u0644\u0648\u0642\u062A\u064A", sel && sel !== GENERIC ? ` — ${sel}` : ""), /*#__PURE__*/React.createElement("input", {
+    ref: camRef,
+    type: "file",
+    accept: "image/*",
+    capture: "environment",
+    style: {
+      display: "none"
+    },
+    onChange: e => {
+      addToTray(e.target.files);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement("div", {
     className: `drop${over ? " over" : ""}`,
     onClick: () => fileRef.current && fileRef.current.click(),
     onDragOver: e => {
@@ -843,9 +1016,9 @@ function Editor({
     strokeLinecap: "round"
   })), /*#__PURE__*/React.createElement("p", {
     className: "big"
-  }, "اسحب الصور هنا أو اضغط للاختيار"), /*#__PURE__*/React.createElement("p", {
+  }, "\u0627\u0633\u062D\u0628 \u0627\u0644\u0635\u0648\u0631 \u0647\u0646\u0627 \u0623\u0648 \u0627\u0636\u063A\u0637 \u0644\u0644\u0627\u062E\u062A\u064A\u0627\u0631"), /*#__PURE__*/React.createElement("p", {
     className: "small"
-  }, "تقدر ترمي مجلد كامل، أو تعمل لصق (Ctrl+V). JPG أو PNG أو WEBP."), /*#__PURE__*/React.createElement("button", {
+  }, "\u062A\u0642\u062F\u0631 \u062A\u0631\u0645\u064A \u0645\u062C\u0644\u062F \u0643\u0627\u0645\u0644\u060C \u0623\u0648 \u062A\u0639\u0645\u0644 \u0644\u0635\u0642 (Ctrl+V). JPG \u0623\u0648 PNG \u0623\u0648 WEBP."), /*#__PURE__*/React.createElement("button", {
     className: "btn-ghost btn-sm",
     style: {
       marginTop: 10
@@ -854,7 +1027,7 @@ function Editor({
       e.stopPropagation();
       dirRef.current && dirRef.current.click();
     }
-  }, "أو اختار مجلد من الجهاز")), /*#__PURE__*/React.createElement("input", {
+  }, "\u0623\u0648 \u0627\u062E\u062A\u0627\u0631 \u0645\u062C\u0644\u062F \u0645\u0646 \u0627\u0644\u062C\u0647\u0627\u0632")), /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",
     accept: "image/jpeg,image/png,image/webp",
@@ -883,12 +1056,12 @@ function Editor({
     className: "tray"
   }, /*#__PURE__*/React.createElement("div", {
     className: "tray-head"
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, tray.length, " صورة جاهزة للرفع"), guessedCount > 0 && /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, tray.length, " \u0635\u0648\u0631\u0629 \u062C\u0627\u0647\u0632\u0629 \u0644\u0644\u0631\u0641\u0639"), guessedCount > 0 && /*#__PURE__*/React.createElement("p", {
     className: "sub",
     style: {
       margin: 0
     }
-  }, "خمّنت لون ", guessedCount, " منهم من اسم الملف — راجعيهم بسرعة.")), colors.length > 0 && /*#__PURE__*/React.createElement("select", {
+  }, "\u062E\u0645\u0651\u0646\u062A \u0644\u0648\u0646 ", guessedCount, " \u0645\u0646\u0647\u0645 \u0645\u0646 \u0627\u0633\u0645 \u0627\u0644\u0645\u0644\u0641 \u2014 \u0631\u0627\u062C\u0639\u064A\u0647\u0645 \u0628\u0633\u0631\u0639\u0629.")), colors.length > 0 && /*#__PURE__*/React.createElement("select", {
     style: {
       width: "auto",
       minWidth: 150
@@ -900,12 +1073,12 @@ function Editor({
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "طبّق لون على الكل…"), colors.map(c => /*#__PURE__*/React.createElement("option", {
+  }, "\u0637\u0628\u0651\u0642 \u0644\u0648\u0646 \u0639\u0644\u0649 \u0627\u0644\u0643\u0644\u2026"), colors.map(c => /*#__PURE__*/React.createElement("option", {
     key: c,
     value: c
   }, c)), /*#__PURE__*/React.createElement("option", {
     value: GENERIC
-  }, "عامة (كل الألوان)"))), /*#__PURE__*/React.createElement("div", {
+  }, "\u0639\u0627\u0645\u0629 (\u0643\u0644 \u0627\u0644\u0623\u0644\u0648\u0627\u0646)"))), /*#__PURE__*/React.createElement("div", {
     className: "tray-grid"
   }, tray.map(r => /*#__PURE__*/React.createElement("div", {
     className: `tcard${r.status === "error" ? " err" : ""}`,
@@ -915,29 +1088,29 @@ function Editor({
     alt: ""
   }), r.guessed && /*#__PURE__*/React.createElement("span", {
     className: "guess"
-  }, "تخمين"), /*#__PURE__*/React.createElement("span", {
+  }, "\u062A\u062E\u0645\u064A\u0646"), /*#__PURE__*/React.createElement("span", {
     className: "sz"
   }, fmtSize(r.size)), !uploading && /*#__PURE__*/React.createElement("button", {
     className: "x",
     onClick: () => dropFromTray(r.key)
-  }, "✕"), colors.length > 0 ? /*#__PURE__*/React.createElement("select", {
+  }, "\u2715"), colors.length > 0 ? /*#__PURE__*/React.createElement("select", {
     value: r.color,
     disabled: uploading,
     onChange: e => setTrayColor(r.key, e.target.value)
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "— اختاري اللون —"), colors.map(c => /*#__PURE__*/React.createElement("option", {
+  }, "\u2014 \u0627\u062E\u062A\u0627\u0631\u064A \u0627\u0644\u0644\u0648\u0646 \u2014"), colors.map(c => /*#__PURE__*/React.createElement("option", {
     key: c,
     value: c
   }, c)), /*#__PURE__*/React.createElement("option", {
     value: GENERIC
-  }, "عامة")) : /*#__PURE__*/React.createElement("div", {
+  }, "\u0639\u0627\u0645\u0629")) : /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       padding: "6px 7px",
       color: "var(--muted)"
     }
-  }, "عامة"), r.status === "error" && /*#__PURE__*/React.createElement("div", {
+  }, "\u0639\u0627\u0645\u0629"), r.status === "error" && /*#__PURE__*/React.createElement("div", {
     className: "bad"
   }, r.error)))), uploading && /*#__PURE__*/React.createElement("div", {
     className: "tprog"
@@ -947,7 +1120,7 @@ function Editor({
     }
   }))), /*#__PURE__*/React.createElement("div", {
     className: "tip"
-  }, "من كل صورة بيتعمل ٣ نسخ تلقائيًا: صغيرة للشبكة، متوسطة للموبايل، وكبيرة للشاشات الكبيرة — العميلة بتحمّل المناسب لشاشتها بس. دوسي على أي صورة مرفوعة عشان تغيّري لونها أو تخليها الغلاف."), /*#__PURE__*/React.createElement("div", {
+  }, "\u0645\u0646 \u0643\u0644 \u0635\u0648\u0631\u0629 \u0628\u064A\u062A\u0639\u0645\u0644 \u0663 \u0646\u0633\u062E \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627: \u0635\u063A\u064A\u0631\u0629 \u0644\u0644\u0634\u0628\u0643\u0629\u060C \u0645\u062A\u0648\u0633\u0637\u0629 \u0644\u0644\u0645\u0648\u0628\u0627\u064A\u0644\u060C \u0648\u0643\u0628\u064A\u0631\u0629 \u0644\u0644\u0634\u0627\u0634\u0627\u062A \u0627\u0644\u0643\u0628\u064A\u0631\u0629 \u2014 \u0627\u0644\u0639\u0645\u064A\u0644\u0629 \u0628\u062A\u062D\u0645\u0651\u0644 \u0627\u0644\u0645\u0646\u0627\u0633\u0628 \u0644\u0634\u0627\u0634\u062A\u0647\u0627 \u0628\u0633. \u062F\u0648\u0633\u064A \u0639\u0644\u0649 \u0623\u064A \u0635\u0648\u0631\u0629 \u0645\u0631\u0641\u0648\u0639\u0629 \u0639\u0634\u0627\u0646 \u062A\u063A\u064A\u0651\u0631\u064A \u0644\u0648\u0646\u0647\u0627 \u0623\u0648 \u062A\u062E\u0644\u064A\u0647\u0627 \u0627\u0644\u063A\u0644\u0627\u0641."), /*#__PURE__*/React.createElement("div", {
     className: "shot-grid"
   }, shown.map(img => /*#__PURE__*/React.createElement("div", {
     className: `shot${img.is_cover ? " cover" : ""}`,
@@ -959,7 +1132,7 @@ function Editor({
     loading: "lazy"
   }), img.is_cover && /*#__PURE__*/React.createElement("span", {
     className: "cov"
-  }, "الغلاف"), /*#__PURE__*/React.createElement("span", {
+  }, "\u0627\u0644\u063A\u0644\u0627\u0641"), /*#__PURE__*/React.createElement("span", {
     className: "color-tag"
   }, img.color || "عام"))), shown.length === 0 && /*#__PURE__*/React.createElement("div", {
     className: "empty",
@@ -978,38 +1151,497 @@ function Editor({
   }, /*#__PURE__*/React.createElement("div", {
     className: "pabox",
     onClick: e => e.stopPropagation()
-  }, /*#__PURE__*/React.createElement("h3", null, "الصورة دي"), /*#__PURE__*/React.createElement("p", {
+  }, /*#__PURE__*/React.createElement("h3", null, "\u0627\u0644\u0635\u0648\u0631\u0629 \u062F\u064A"), /*#__PURE__*/React.createElement("p", {
     className: "sub",
     style: {
       marginBottom: 12
     }
-  }, "اللون الحالي: ", acting.color || "عام (كل الألوان)"), !acting.is_cover && /*#__PURE__*/React.createElement("button", {
+  }, "\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u062D\u0627\u0644\u064A: ", acting.color || "عام (كل الألوان)"), !acting.is_cover && /*#__PURE__*/React.createElement("button", {
     className: "pa-btn",
     onClick: () => makeCover(acting)
-  }, "خليها صورة الغلاف"), /*#__PURE__*/React.createElement("button", {
+  }, "\u062E\u0644\u064A\u0647\u0627 \u0635\u0648\u0631\u0629 \u0627\u0644\u063A\u0644\u0627\u0641"), /*#__PURE__*/React.createElement("button", {
     className: "pa-btn",
     onClick: () => moveFirst(acting)
-  }, "خليها أول صورة"), colors.filter(c => c !== acting.color).map(c => /*#__PURE__*/React.createElement("button", {
+  }, "\u062E\u0644\u064A\u0647\u0627 \u0623\u0648\u0644 \u0635\u0648\u0631\u0629"), colors.filter(c => c !== acting.color).map(c => /*#__PURE__*/React.createElement("button", {
     key: c,
     className: "pa-btn",
     onClick: () => retag(acting, c)
-  }, "غيّر اللون لـ «", c, "»")), acting.color && /*#__PURE__*/React.createElement("button", {
+  }, "\u063A\u064A\u0651\u0631 \u0627\u0644\u0644\u0648\u0646 \u0644\u0640 \xAB", c, "\xBB")), acting.color && /*#__PURE__*/React.createElement("button", {
     className: "pa-btn",
     onClick: () => retag(acting, GENERIC)
-  }, "خليها عامة (كل الألوان)"), /*#__PURE__*/React.createElement("button", {
+  }, "\u062E\u0644\u064A\u0647\u0627 \u0639\u0627\u0645\u0629 (\u0643\u0644 \u0627\u0644\u0623\u0644\u0648\u0627\u0646)"), /*#__PURE__*/React.createElement("button", {
     className: "pa-btn danger",
     onClick: () => removeImage(acting)
-  }, "احذف الصورة"), /*#__PURE__*/React.createElement("button", {
+  }, "\u0627\u062D\u0630\u0641 \u0627\u0644\u0635\u0648\u0631\u0629"), /*#__PURE__*/React.createElement("button", {
     className: "pa-btn",
     onClick: () => setActing(null)
-  }, "إلغاء"))));
+  }, "\u0625\u0644\u063A\u0627\u0621"))));
+}
+
+/* ── امسح وصوّر ────────────────────────────────────────────────────
+   أسرع طريقة: تمسكي أي قطعة، تمسحي باركودها، فالسيستم يعرف الموديل
+   واللون لوحده ويفتح التصوير عليهم. بيشتغل بثلاث طرق:
+     • كاميرا الموبايل (أندرويد/كروم — BarcodeDetector)
+     • قارئ الباركود العادي (بيكتب في الخانة ويدوس Enter)
+     • كتابة الباركود أو الـSKU بالإيد */
+function ScanPanel({
+  onResolved
+}) {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [camOn, setCamOn] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const inputRef = useRef(null);
+  const canDetect = typeof window !== "undefined" && "BarcodeDetector" in window;
+  const stopCam = () => {
+    try {
+      (streamRef.current?.getTracks() || []).forEach(t => t.stop());
+    } catch (e) {}
+    streamRef.current = null;
+    setCamOn(false);
+  };
+  useEffect(() => () => stopCam(), []);
+  const lookup = async raw => {
+    const v = toLatinDigits(String(raw || "")).trim();
+    if (!v || busy) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const res = await rpc("shop_fn_photo_resolve", {
+        p_inputs: [v]
+      });
+      const r = Array.isArray(res) ? res[0] : null;
+      if (r && r.product) {
+        stopCam();
+        setCode("");
+        onResolved(r.product, r.color);
+      } else if (r && r.candidates) setMsg("فيه أكتر من موديل بالـSKU ده — اكتبيه بالظبط زي ما هو (حروف كبيرة/صغيرة)");else setMsg(`«${v}» مش متسجّل — جرّبي باركود قطعة تانية أو اكتبي الـSKU`);
+    } catch (e) {
+      setMsg(e.message || "حصل خطأ");
+    } finally {
+      setBusy(false);
+      inputRef.current && inputRef.current.focus();
+    }
+  };
+  const startCam = async () => {
+    setMsg("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment"
+        }
+      });
+      streamRef.current = stream;
+      setCamOn(true);
+      await new Promise(r => setTimeout(r, 50));
+      const v = videoRef.current;
+      if (!v) return;
+      v.srcObject = stream;
+      await v.play();
+      const det = new window.BarcodeDetector({
+        formats: ["code_128", "ean_13", "ean_8", "upc_a", "code_39", "itf", "qr_code"]
+      });
+      const tick = async () => {
+        if (!streamRef.current) return;
+        try {
+          const found = await det.detect(v);
+          if (found && found[0] && found[0].rawValue) {
+            lookup(found[0].rawValue);
+            return;
+          }
+        } catch (e) {}
+        setTimeout(tick, 250);
+      };
+      tick();
+    } catch (e) {
+      stopCam();
+      setMsg("مقدرناش نفتح الكاميرا — اسمحي للصفحة بالكاميرا، أو استخدمي القارئ أو اكتبي الرقم");
+    }
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("h2", null, "\u0627\u0645\u0633\u062D\u064A \u0628\u0627\u0631\u0643\u0648\u062F \u0623\u064A \u0642\u0637\u0639\u0629"), /*#__PURE__*/React.createElement("p", {
+    className: "sub",
+    style: {
+      marginBottom: 12
+    }
+  }, "\u0627\u0644\u0633\u064A\u0633\u062A\u0645 \u0628\u064A\u0639\u0631\u0641 \u0627\u0644\u0645\u0648\u062F\u064A\u0644 \u0648\u0627\u0644\u0644\u0648\u0646 \u0645\u0646 \u0627\u0644\u0628\u0627\u0631\u0643\u0648\u062F\u060C \u0648\u064A\u0641\u062A\u062D \u0644\u0643 \u0627\u0644\u062A\u0635\u0648\u064A\u0631 \u0639\u0644\u064A\u0647\u0645 \u0639\u0644\u0649 \u0637\u0648\u0644."), /*#__PURE__*/React.createElement("form", {
+    className: "search-row",
+    onSubmit: e => {
+      e.preventDefault();
+      lookup(code);
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    ref: inputRef,
+    autoFocus: true,
+    inputMode: "text",
+    value: code,
+    disabled: busy,
+    onChange: e => setCode(e.target.value),
+    placeholder: "\u0627\u0645\u0633\u062D\u064A \u0628\u0627\u0644\u0642\u0627\u0631\u0626\u060C \u0623\u0648 \u0627\u0643\u062A\u0628\u064A \u0627\u0644\u0628\u0627\u0631\u0643\u0648\u062F / \u0627\u0644\u0640SKU"
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn-primary",
+    type: "submit",
+    disabled: busy || !code.trim()
+  }, busy ? "…" : "افتح")), canDetect ? camOn ? /*#__PURE__*/React.createElement("div", {
+    className: "cam"
+  }, /*#__PURE__*/React.createElement("video", {
+    ref: videoRef,
+    playsInline: true,
+    muted: true
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "cam-frame"
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    onClick: stopCam
+  }, "\u0627\u0642\u0641\u0644 \u0627\u0644\u0643\u0627\u0645\u064A\u0631\u0627")) : /*#__PURE__*/React.createElement("button", {
+    className: "btn-primary cam-btn",
+    onClick: startCam
+  }, "\uD83D\uDCF7 \u0627\u0645\u0633\u062D\u064A \u0628\u0643\u0627\u0645\u064A\u0631\u0627 \u0627\u0644\u0645\u0648\u0628\u0627\u064A\u0644") : /*#__PURE__*/React.createElement("div", {
+    className: "tip"
+  }, "\u0627\u0644\u062C\u0647\u0627\u0632 \u062F\u0647 \u0645\u0634 \u0628\u064A\u0642\u0631\u0627 \u0628\u0627\u0631\u0643\u0648\u062F \u0645\u0646 \u0627\u0644\u0643\u0627\u0645\u064A\u0631\u0627 (\u0622\u064A\u0641\u0648\u0646 \u0645\u062B\u0644\u064B\u0627) \u2014 \u0627\u0633\u062A\u062E\u062F\u0645\u064A \u0642\u0627\u0631\u0626 \u0627\u0644\u0628\u0627\u0631\u0643\u0648\u062F \u0623\u0648 \u0627\u0643\u062A\u0628\u064A \u0627\u0644\u0631\u0642\u0645 \u0627\u0644\u0644\u064A \u062A\u062D\u062A \u0627\u0644\u0628\u0627\u0631\u0643\u0648\u062F\u060C \u0648\u0627\u0644\u0628\u0627\u0642\u064A \u0632\u064A \u0645\u0627 \u0647\u0648."), msg && /*#__PURE__*/React.createElement("div", {
+    className: "warnbox",
+    style: {
+      marginTop: 12
+    }
+  }, msg));
+}
+
+/* ── الرفع الجماعي ───────────────────────────────────────────────────
+   ترمي صور كتير مرة واحدة (أو مجلد كامل)، والسيستم يوزّعها لوحده:
+     • اسم الملف: «15-اسود.jpg» ← موديل SKU 15، لون أسود
+     • اسم المجلد: مجلد «15» جواه «اسود.jpg» ← نفس النتيجة
+     • اسم الملف = اسم الموديل، أو باركود قطعة
+   اللي ما يتعرّفش بيفضل في الجدول تختاري له الموديل بإيدك. ومفيش رفع
+   غير لما تراجعي وتدوسي «ارفع». */
+function BulkPanel({
+  products,
+  onDone
+}) {
+  const [rows, setRows] = useState([]);
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(0);
+  const [only, setOnly] = useState(""); // فلتر الجدول: "" | "ok" | "missing"
+  const fileRef = useRef(null);
+  const dirRef = useRef(null);
+  const byId = new Map(products.map(p => [p.id, p]));
+  const rowsRef = useRef([]);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+  useEffect(() => () => rowsRef.current.forEach(r => URL.revokeObjectURL(r.preview)), []);
+  const addFiles = async fileList => {
+    const incoming = Array.from(fileList || []).filter(Boolean);
+    const usable = incoming.filter(f => OK_TYPES[f.type]);
+    const bad = incoming.length - usable.length;
+    if (bad) toast(`${bad} ملف مش صورة مدعومة (JPG/PNG/WEBP) — اتخطّوا`, "err");
+    if (!usable.length) return;
+    const seen = new Set(rows.map(r => `${r.file.name}|${r.file.size}`));
+    const fresh = usable.filter(f => !seen.has(`${f.name}|${f.size}`)).map(f => {
+      const rel = f.webkitRelativePath || "";
+      const parts = rel.split("/").filter(Boolean);
+      return {
+        key: crypto.randomUUID(),
+        file: f,
+        preview: URL.createObjectURL(f),
+        folder: parts.length > 1 ? parts[parts.length - 2] : "",
+        product: null,
+        color: "",
+        how: "",
+        status: "ready",
+        error: "",
+        cands: null
+      };
+    });
+    if (!fresh.length) {
+      toast("الصور دي موجودة في القايمة أصلًا", "err");
+      return;
+    }
+    setBusy(true);
+    try {
+      // ١) اسم الملف  ٢) اللي ما اتعرّفش: اسم المجلد + اسم الملف
+      const resolved = new Map();
+      for (let i = 0; i < fresh.length; i += 200) {
+        const part = fresh.slice(i, i + 200);
+        const res = await rpc("shop_fn_photo_resolve", {
+          p_inputs: part.map(r => r.file.name)
+        });
+        (res || []).forEach((x, n) => resolved.set(part[n].key, x));
+      }
+      const retry = fresh.filter(r => !(resolved.get(r.key) || {}).product && r.folder);
+      for (let i = 0; i < retry.length; i += 200) {
+        const part = retry.slice(i, i + 200);
+        const res = await rpc("shop_fn_photo_resolve", {
+          p_inputs: part.map(r => `${r.folder} ${r.file.name}`)
+        });
+        (res || []).forEach((x, n) => {
+          if (x && x.product) resolved.set(part[n].key, {
+            ...x,
+            kind: "folder"
+          });
+        });
+      }
+      const ready = fresh.map(r => {
+        const x = resolved.get(r.key) || {};
+        const prod = x.product ? byId.get(x.product.id) || x.product : null;
+        const color = x.color || (prod ? guessColor(r.file.name, prod.colors || []) : null) || "";
+        return {
+          ...r,
+          product: prod,
+          color: color || "",
+          how: x.kind || "none",
+          cands: x.candidates || null
+        };
+      });
+      setRows(t => [...t, ...ready]);
+      const okN = ready.filter(r => r.product).length;
+      toast(`اتعرّف ${okN} من ${ready.length} صورة تلقائيًا${okN < ready.length ? " — الباقي اختاري موديله" : " ✓"}`, okN < ready.length ? "" : "ok");
+    } catch (e) {
+      toast(e.message || "تعذّر التعرّف على الصور", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const setRow = (key, patch) => setRows(t => t.map(r => r.key === key ? {
+    ...r,
+    ...patch
+  } : r));
+  const dropRow = key => setRows(t => {
+    const r = t.find(x => x.key === key);
+    if (r) URL.revokeObjectURL(r.preview);
+    return t.filter(x => x.key !== key);
+  });
+  const missing = rows.filter(r => !r.product).length;
+  const noColor = rows.filter(r => r.product && (r.product.colors || []).length && !r.color).length;
+  const shown = only === "ok" ? rows.filter(r => r.product) : only === "missing" ? rows.filter(r => !r.product) : rows;
+  const uploadAll = async () => {
+    const todo = rows.filter(r => r.product && r.status !== "done");
+    if (!todo.length || busy) return;
+    if (noColor > 0 && !confirm(`${noColor} صورة من غير لون — هتترفع «عامة» لكل ألوان الموديل. نكمّل؟`)) return;
+    setBusy(true);
+    setDone(0);
+    await runPool(todo, 3, async row => {
+      try {
+        const prep = await prepareImage(row.file);
+        const {
+          fullPath,
+          sizes
+        } = await uploadShot(row.product.id, prep);
+        const res = await rpc("shop_fn_attach_product_image", {
+          p_product_id: row.product.id,
+          p_path: fullPath,
+          p_color: row.color && row.color !== GENERIC ? row.color : null,
+          p_sizes: Object.keys(sizes).length ? sizes : null,
+          p_original_name: row.file.name
+        });
+        if (!res || res.ok === false) throw new Error(res && res.error || "فشل الحفظ");
+        setRow(row.key, {
+          status: "done",
+          error: ""
+        });
+      } catch (e) {
+        setRow(row.key, {
+          status: "error",
+          error: e.message || "فشل الرفع"
+        });
+      } finally {
+        setDone(d => d + 1);
+      }
+    });
+    setBusy(false);
+    setRows(t => {
+      t.filter(r => r.status === "done").forEach(r => URL.revokeObjectURL(r.preview));
+      const left = t.filter(r => r.status !== "done");
+      const up = t.length - left.length;
+      toast(left.some(r => r.status === "error") ? `اترفع ${up} — فضل ${left.filter(r => r.status === "error").length} فيهم مشكلة` : `اترفعت ${up} صورة ✓`, left.some(r => r.status === "error") ? "err" : "ok");
+      return left;
+    });
+    onDone && onDone();
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "panel"
+  }, /*#__PURE__*/React.createElement("h2", null, "\u0631\u0641\u0639 \u062C\u0645\u0627\u0639\u064A \u2014 \u0627\u0644\u0633\u064A\u0633\u062A\u0645 \u064A\u0648\u0632\u0651\u0639 \u0627\u0644\u0635\u0648\u0631 \u0644\u0648\u062D\u062F\u0647"), /*#__PURE__*/React.createElement("div", {
+    className: "tip"
+  }, "\u0633\u0645\u0651\u064A \u0627\u0644\u0635\u0648\u0631\u0629 \u0628\u0627\u0644\u0640SKU \u0648\u0627\u0644\u0644\u0648\u0646: ", /*#__PURE__*/React.createElement("b", null, "15-\u0627\u0633\u0648\u062F.jpg"), " \u0623\u0648 ", /*#__PURE__*/React.createElement("b", null, "16X \u0628\u0646\u064A 2.jpg"), ". \u0623\u0648 \u0627\u0639\u0645\u0644\u064A \u0645\u062C\u0644\u062F \u0628\u0627\u0633\u0645 \u0627\u0644\u0640SKU (\u0645\u062B\u0644\u064B\u0627 ", /*#__PURE__*/React.createElement("b", null, "15"), ") \u0648\u062C\u0648\u0627\u0647 \u0627\u0644\u0635\u0648\u0631 \u0628\u0627\u0633\u0645 \u0627\u0644\u0644\u0648\u0646. \u0648\u0644\u0648 \u0627\u0644\u0627\u0633\u0645 \u0645\u0634 \u0645\u0641\u0647\u0648\u0645\u060C \u0647\u062A\u062E\u062A\u0627\u0631\u064A \u0627\u0644\u0645\u0648\u062F\u064A\u0644 \u0628\u0625\u064A\u062F\u0643 \u0642\u0628\u0644 \u0627\u0644\u0631\u0641\u0639."), /*#__PURE__*/React.createElement("div", {
+    className: `drop${over ? " over" : ""}`,
+    onClick: () => fileRef.current && fileRef.current.click(),
+    onDragOver: e => {
+      e.preventDefault();
+      setOver(true);
+    },
+    onDragLeave: () => setOver(false),
+    onDrop: async e => {
+      e.preventDefault();
+      setOver(false);
+      addFiles(await filesFromDrop(e.dataTransfer));
+    }
+  }, /*#__PURE__*/React.createElement("p", {
+    className: "big"
+  }, busy && !rows.length ? "بيتعرّف على الصور…" : "اسحبي الصور أو المجلدات هنا"), /*#__PURE__*/React.createElement("p", {
+    className: "small"
+  }, "\u0623\u0648 \u0627\u0636\u063A\u0637\u064A \u0644\u0644\u0627\u062E\u062A\u064A\u0627\u0631 \u0645\u0646 \u0627\u0644\u062C\u0647\u0627\u0632"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost btn-sm",
+    style: {
+      marginTop: 10
+    },
+    onClick: e => {
+      e.stopPropagation();
+      dirRef.current && dirRef.current.click();
+    }
+  }, "\u0627\u062E\u062A\u0627\u0631\u064A \u0645\u062C\u0644\u062F \u0643\u0627\u0645\u0644")), /*#__PURE__*/React.createElement("input", {
+    ref: fileRef,
+    type: "file",
+    accept: "image/jpeg,image/png,image/webp",
+    multiple: true,
+    style: {
+      display: "none"
+    },
+    onChange: e => {
+      addFiles(e.target.files);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement("input", {
+    ref: dirRef,
+    type: "file",
+    multiple: true,
+    webkitdirectory: "",
+    directory: "",
+    style: {
+      display: "none"
+    },
+    onChange: e => {
+      addFiles(e.target.files);
+      e.target.value = "";
+    }
+  }), rows.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "filters"
+  }, [["", `الكل (${rows.length})`], ["ok", `اتعرّفت (${rows.length - missing})`], ["missing", `محتاجة موديل (${missing})`]].map(([k, label]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    className: `fchip${only === k ? " on" : ""}`,
+    onClick: () => setOnly(k)
+  }, label))), /*#__PURE__*/React.createElement("div", {
+    className: "brows"
+  }, shown.map(r => /*#__PURE__*/React.createElement("div", {
+    key: r.key,
+    className: `brow${!r.product ? " miss" : ""}${r.status === "error" ? " err" : ""}`
+  }, /*#__PURE__*/React.createElement("img", {
+    src: r.preview,
+    alt: ""
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "binfo"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "fname",
+    title: r.file.webkitRelativePath || r.file.name
+  }, r.folder ? `${r.folder}/` : "", r.file.name), r.product ? /*#__PURE__*/React.createElement("div", {
+    className: "bprod"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "sku"
+  }, r.product.base_sku), " ", r.product.name, /*#__PURE__*/React.createElement("button", {
+    className: "link",
+    disabled: busy,
+    onClick: () => setRow(r.key, {
+      product: null,
+      color: ""
+    })
+  }, "\u063A\u064A\u0651\u0631")) : r.cands ? /*#__PURE__*/React.createElement("select", {
+    value: "",
+    onChange: e => {
+      const p = byId.get(e.target.value);
+      if (p) setRow(r.key, {
+        product: p,
+        cands: null,
+        color: guessColor(r.file.name, p.colors || []) || ""
+      });
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u0623\u0643\u062A\u0631 \u0645\u0646 \u0645\u0648\u062F\u064A\u0644 \u0628\u0646\u0641\u0633 \u0627\u0644\u0640SKU \u2014 \u0627\u062E\u062A\u0627\u0631\u064A\u2026"), r.cands.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c.id,
+    value: c.id
+  }, c.base_sku, " \u2014 ", c.name))) : /*#__PURE__*/React.createElement(ModelPicker, {
+    products: products,
+    onPick: p => setRow(r.key, {
+      product: p,
+      how: "manual",
+      color: guessColor(r.file.name, p.colors || []) || ""
+    })
+  }), r.product && (r.product.colors || []).length > 0 && /*#__PURE__*/React.createElement("select", {
+    value: r.color,
+    disabled: busy,
+    onChange: e => setRow(r.key, {
+      color: e.target.value
+    })
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u2014 \u0627\u0644\u0644\u0648\u0646 \u2014"), r.product.colors.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c)), /*#__PURE__*/React.createElement("option", {
+    value: GENERIC
+  }, "\u0639\u0627\u0645\u0629 (\u0643\u0644 \u0627\u0644\u0623\u0644\u0648\u0627\u0646)")), r.status === "error" && /*#__PURE__*/React.createElement("div", {
+    className: "bad-inline"
+  }, r.error)), !busy && /*#__PURE__*/React.createElement("button", {
+    className: "x-inline",
+    onClick: () => dropRow(r.key),
+    "aria-label": "\u0634\u064A\u0644"
+  }, "\u2715")))), busy && rows.some(r => r.product) && /*#__PURE__*/React.createElement("div", {
+    className: "tprog"
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      width: `${Math.round(done / Math.max(1, rows.filter(r => r.product).length) * 100)}%`
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "stickybar"
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-primary",
+    onClick: uploadAll,
+    disabled: busy || rows.length === missing
+  }, busy ? `بيرفع… ${done}` : `ارفع ${rows.length - missing} صورة${missing ? ` (و${missing} لسه من غير موديل)` : ""}`))));
+}
+
+/* ── تنضيف التخزين ───────────────────────────────────────────────────
+   أي ملف في التخزين مفيش صورة بتشاور عليه (رفع اتقطع، أو صورة اتمسحت)
+   بيتشال هنا بهدوء — عشان المساحة المجانية ما تتاكلش. السيرفر بيستثني
+   أي ملف عمره أقل من ١٠ دقايق، فمستحيل يلمس رفع شغال. */
+async function cleanOrphans() {
+  try {
+    const list = await rpc("shop_fn_photo_orphans", {});
+    if (!Array.isArray(list) || !list.length) return 0;
+    for (let i = 0; i < list.length; i += 100) await deleteObjects(list.slice(i, i + 100));
+    try {
+      window.__omraaLog && window.__omraaLog("photos.orphans_cleaned", {
+        message: `${list.length} files`
+      }, {
+        severity: "info"
+      });
+    } catch (e) {}
+    return list.length;
+  } catch (e) {
+    return 0;
+  }
 }
 function App() {
   const [products, setProducts] = useState(null);
-  const [filter, setFilter] = useState("");
-  const [tab, setTab] = useState("none");
+  const [prefs, setPrefs] = useState(() => ({
+    mode: "grid",
+    tab: "none",
+    sort: "need",
+    ...loadPrefs()
+  }));
   const [open, setOpen] = useState(null);
   const [error, setError] = useState("");
+  const [barcodeHit, setBarcodeHit] = useState(null);
+  const setPref = (k, v) => setPrefs(p => {
+    const n = {
+      ...p,
+      [k]: v
+    };
+    savePrefs(n);
+    return n;
+  });
   const load = useCallback(async () => {
     try {
       // طابور إداري: بيشمل غير المنشور كمان — ده بالظبط اللي بيتصوّر
@@ -1024,15 +1656,36 @@ function App() {
   }, []);
   useEffect(() => {
     load();
+    cleanOrphans();
   }, [load]);
-  const openProduct = async p => {
+
+  // البحث بباركود: الأرقام الطويلة بتتدوّر على السيرفر (الباركود مش محمّل محليًا)
+  useEffect(() => {
+    const v = toLatinDigits(prefs.q || "").trim();
+    if (!/^[0-9]{6,20}$/.test(v)) {
+      setBarcodeHit(null);
+      return;
+    }
+    let live = true;
+    rpc("shop_fn_admin_photo_queue", {
+      p_q: v
+    }).then(rows => {
+      if (live) setBarcodeHit(new Set((rows || []).map(r => r.id)));
+    }).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [prefs.q]);
+  const openProduct = async (p, color) => {
     try {
+      const full = (products || []).find(x => x.id === p.id) || p;
       const imgs = await rpc("shop_fn_admin_product_images", {
         p_product_id: p.id
       });
       setOpen({
-        ...p,
-        images: imgs || []
+        ...full,
+        images: imgs || [],
+        initialColor: color || null
       });
     } catch (e) {
       toast(e.message, "err");
@@ -1051,16 +1704,34 @@ function App() {
     className: "spin-big"
   }), /*#__PURE__*/React.createElement("p", {
     className: "muted"
-  }, "جارٍ التحميل…"));
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ProductGrid, {
+  }, "\u062C\u0627\u0631\u064D \u0627\u0644\u062A\u062D\u0645\u064A\u0644\u2026"));
+  const withPhotos = products.filter(p => p.photo_count > 0).length;
+  const mode = prefs.mode || "grid";
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    className: "stats"
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, products.length), /*#__PURE__*/React.createElement("span", null, "\u0645\u0648\u062F\u064A\u0644")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, withPhotos), /*#__PURE__*/React.createElement("span", null, "\u0639\u0644\u064A\u0647 \u0635\u0648\u0631")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, products.length - withPhotos), /*#__PURE__*/React.createElement("span", null, "\u0645\u062D\u062A\u0627\u062C \u0635\u0648\u0631")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, products.filter(p => p.is_published).length), /*#__PURE__*/React.createElement("span", null, "\u0638\u0627\u0647\u0631 \u0639\u0644\u0649 \u0627\u0644\u0645\u0648\u0642\u0639"))), /*#__PURE__*/React.createElement("div", {
+    className: "modes",
+    role: "tablist"
+  }, [["grid", "🗂️ الموديلات"], ["scan", "📷 امسحي وصوّري"], ["bulk", "⬆️ رفع جماعي"]].map(([k, label]) => /*#__PURE__*/React.createElement("button", {
+    key: k,
+    role: "tab",
+    "aria-selected": mode === k,
+    className: `mode${mode === k ? " on" : ""}`,
+    onClick: () => setPref("mode", k)
+  }, label))), mode === "grid" && /*#__PURE__*/React.createElement(ProductGrid, {
     products: products,
-    filter: filter,
-    setFilter: setFilter,
-    tab: tab,
-    setTab: setTab,
-    onOpen: openProduct
+    prefs: prefs,
+    setPref: setPref,
+    barcodeHit: barcodeHit,
+    onOpen: p => openProduct(p)
+  }), mode === "scan" && /*#__PURE__*/React.createElement(ScanPanel, {
+    onResolved: (p, color) => openProduct(p, color)
+  }), mode === "bulk" && /*#__PURE__*/React.createElement(BulkPanel, {
+    products: products,
+    onDone: load
   }), open && /*#__PURE__*/React.createElement(Editor, {
     product: open,
+    initialColor: open.initialColor,
     onClose: () => {
       setOpen(null);
       load();

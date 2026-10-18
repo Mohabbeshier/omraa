@@ -279,3 +279,13 @@
   setInterval(check,60000);
 }catch(_){}})();
 
+
+/* === فلاتر الجداول + البحث الشامل ===================================
+   ملف منفصل، بيتحمّل من هنا عشان كل الصفحات بتحمّل الملف ده أصلًا
+   (ومنه بيفضل شغال مع التنقّل الداخلي بين الصفحات من غير إعادة تحميل). */
+(function(){try{
+  if(window.__omraaFiltersLoader)return;window.__omraaFiltersLoader=1;
+  var s=document.createElement("script");
+  s.src="/omraa/omraa-filters.js?v=1";s.async=true;
+  (document.head||document.documentElement).appendChild(s);
+}catch(_){}})();

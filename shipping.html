@@ -83,6 +83,10 @@
 
   .empty{text-align:center;padding:46px 20px;color:var(--muted)}
   .empty .big{font-size:40px;margin-bottom:8px}
+  .sfbar{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 12px}
+  .sfbar select{flex:1 1 130px;border:1px solid var(--line);border-radius:10px;padding:9px 10px;font:inherit;font-size:13px;background:#fff;min-height:40px}
+  .sfx{border:0;background:var(--ink);color:#fff;border-radius:10px;padding:9px 12px;font:inherit;font-size:12.5px;min-height:40px}
+  @media (max-width:700px){ .sfbar select{font-size:16px;min-height:44px} }
   .sum{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;
        margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
   .sum b{font-size:19px;color:var(--money)}

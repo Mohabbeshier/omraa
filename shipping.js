@@ -131,7 +131,10 @@ const TABS = [
   ["done",  "خلصت"],
 ];
 
-let S = { tab:"todo", rows:[], q:"", sel:[], busy:false, sheet:null, loaded:false };
+let S = { tab:"todo", rows:[], q:"", sel:[], busy:false, sheet:null, loaded:false,
+          courier:"", age:"", money:"", sort:"old" };
+// ?q= من البحث الشامل في الرئيسية بيفتح الصفحة على البحث ده
+try{ const q0 = new URLSearchParams(location.search).get("q"); if(q0) S.q = q0; }catch(e){}
 
 const $  = (s) => document.querySelector(s);
 const esc = (s) => String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -189,10 +192,58 @@ function rowsFor(tab){
     list = list.filter(r =>
       (r.customer||"").includes(q) || (r.phone||"").includes(nq) ||
       (r.sale_code||"").toLowerCase().includes(q.toLowerCase()) ||
-      (r.address||"").includes(q));
+      (r.address||"").includes(q) || (r.courier||"").includes(q));
   }
-  // الأقدم فوق: اللي مستني من أسبوع أهم من اللي اتعمل النهارده
-  return list.sort((x,y)=> new Date(x.created_at) - new Date(y.created_at));
+  // فلاتر: المندوب، عمر الشحنة، حالة الفلوس
+  if(S.courier) list = list.filter(r => (r.courier||"__none__") === S.courier);
+  if(S.age==="late") list = list.filter(r => daysAgo(r.created_at) >= 3);
+  if(S.age==="today") list = list.filter(r => daysAgo(r.created_at) === 0);
+  if(S.age==="week") list = list.filter(r => daysAgo(r.created_at) <= 7);
+  if(S.money) list = list.filter(r => r.money === S.money);
+  // الأقدم فوق افتراضيًا: اللي مستني من أسبوع أهم من اللي اتعمل النهارده
+  const by = { old:(x,y)=> new Date(x.created_at) - new Date(y.created_at),
+               new:(x,y)=> new Date(y.created_at) - new Date(x.created_at),
+               cod:(x,y)=> (Number(y.cod)||0) - (Number(x.cod)||0) };
+  return list.sort(by[S.sort] || by.old);
+}
+
+/* شريط البحث والفلاتر بيترسم مرة واحدة لكل تبويب — كان بيترسم مع كل
+   حرف، فالخانة كانت بتفقد التركيز بعد أول حرف وتبطل تكتب. */
+function filterBar(){
+  const couriers = [...new Set(S.rows.map(r=>r.courier||"__none__"))].sort();
+  const moneyOpts = [...new Map(S.rows.filter(r=>r.money).map(r=>[r.money, r.money_label||r.money])).entries()];
+  const opt = (v,l,cur)=>`<option value="${esc(v)}" ${cur===v?"selected":""}>${esc(l)}</option>`;
+  const active = [S.courier,S.age,S.money].filter(Boolean).length;
+  return `<input class="search" id="shq" placeholder="دوّر باسم العميلة أو الموبايل أو الفاتورة…" value="${esc(S.q)}"
+           oninput="S.q=this.value;renderList()">
+    <div class="sfbar">
+      <select onchange="S.courier=this.value;render()" aria-label="المندوب">
+        ${opt("","كل المناديب",S.courier)}${couriers.map(c=>opt(c, c==="__none__"?"من غير مندوب":c, S.courier)).join("")}
+      </select>
+      <select onchange="S.age=this.value;render()" aria-label="عمر الشحنة">
+        ${opt("","كل الأيام",S.age)}${opt("today","النهارده",S.age)}${opt("week","آخر ٧ أيام",S.age)}${opt("late","متأخرة (٣ أيام+)",S.age)}
+      </select>
+      <select onchange="S.money=this.value;render()" aria-label="الفلوس">
+        ${opt("","الفلوس: الكل",S.money)}${moneyOpts.map(([v,l])=>opt(v,l,S.money)).join("")}
+      </select>
+      <select onchange="S.sort=this.value;render()" aria-label="الترتيب">
+        ${opt("old","الأقدم الأول",S.sort)}${opt("new","الأحدث الأول",S.sort)}${opt("cod","الأعلى مبلغ",S.sort)}
+      </select>
+      ${active?`<button class="sfx" onclick="S.courier='';S.age='';S.money='';render()">شيل الفلاتر (${num(active)})</button>`:""}
+    </div>
+    <div id="shiplist"></div>`;
+}
+
+function renderList(){
+  const box = $("#shiplist");
+  if(!box){ render(); return; }
+  const list = rowsFor(S.tab);
+  const totalCod = list.reduce((s,r)=>s+(Number(r.cod)||0),0);
+  box.innerHTML = `
+    ${S.tab==="money" && list.length ? `<div class="sum">
+        <span>فلوس مستنية التحصيل</span><b>${money(totalCod)}</b></div>` : ""}
+    ${list.length ? list.map(card).join("") : emptyState()}`;
+  renderBulk();
 }
 
 /* ── الرسم ──────────────────────────────────────────────────────── */
@@ -205,17 +256,8 @@ function render(){
     `<button class="tab ${S.tab===k?"on":""}" onclick="go('${k}')">${l}<span class="n">${num(counts[k])}</span></button>`
   ).join("");
 
-  const list = rowsFor(S.tab);
-  const totalCod = list.reduce((s,r)=>s+(Number(r.cod)||0),0);
-
-  $("#app").innerHTML = `
-    <input class="search" placeholder="دوّر باسم العميلة أو الموبايل…" value="${esc(S.q)}"
-           oninput="S.q=this.value;render()">
-    ${S.tab==="money" && list.length ? `<div class="sum">
-        <span>فلوس مستنية التحصيل</span><b>${money(totalCod)}</b></div>` : ""}
-    ${list.length ? list.map(card).join("") : emptyState()}`;
-
-  renderBulk();
+  $("#app").innerHTML = filterBar();
+  renderList();
 }
 
 function emptyState(){

@@ -72,6 +72,7 @@
     (document.body||document.documentElement).appendChild(d);
     window.__omraaLog&&window.__omraaLog("session.expired.banner",{message:"auth failures x"+A401},{severity:"warn"});
   }catch(_){}}
+  window.__omraaAuthFail=function(){A401++;banner();};
   var OF=window.fetch;
   window.fetch=function(u,o){
     var url="";try{url=String((u&&u.url)||u);}catch(_){}
@@ -80,7 +81,12 @@
       if(!r||r.ok)return;
       var st=r.status;
       if(url.indexOf("/auth/v1/")>=0){if(st===400||st===401||st===403){A401++;banner();}return;}
-      if(st===401){A401++;banner();}
+      if(st===401){
+        // «JWT expired» بيتعالج في الحارس (بيستنى الجلسة تتجدد ويعيد الطلب)؛
+        // بنعدّه فشل بس لو الحارس نفسه قال إنه فشل.
+        if(window.__omraaGuard){r.clone().text().then(function(b){if(String(b).indexOf("PGRST303")<0){A401++;banner();}}).catch(function(){});}
+        else{A401++;banner();}
+      }
       var fn=(url.split("/rpc/")[1]||url.slice(-60)).split("?")[0];
       var k="rpc:"+fn+":"+st;if(!once(k))return;
       var sev=st>=500?"error":"warn";
@@ -202,6 +208,23 @@
           return again();
         });
       }
+      if(url.indexOf(SB+"/rest/v1/")===0&&url!==SB+"/rest/v1/"&&typeof u==="string"&&o&&(o.body==null||typeof o.body==="string")){
+        var sentAuth=authOf(o);
+        if(sentAuth&&sentAuth.indexOf(ANON)<0)p=p.then(function(r){
+          if(!r||r.status!==401)return r;
+          return r.clone().text().then(function(b){
+            if(String(b).indexOf("PGRST303")<0)return r;
+            return waitFreshToken(sentAuth,8000).then(function(tk){
+              if(!tk){window.__omraaAuthFail&&window.__omraaAuthFail();log("guard.jwt_expired_no_refresh","no fresh token in 8s",{});return r;}
+              var h=new Headers(o.headers||{});h.set("Authorization","Bearer "+tk);
+              return OF.call(self,u,Object.assign({},o,{headers:h})).then(function(r2){
+                if(r2&&r2.status===401)window.__omraaAuthFail&&window.__omraaAuthFail();
+                return r2;
+              });
+            });
+          },function(){return r;});
+        });
+      }
       if(url.indexOf(SB)===0){try{
         var isTok=url.indexOf("/auth/v1/token")>=0;
         if(isTok){refreshes.push(sentAt);refreshes=refreshes.filter(function(t){return sentAt-t<60000;});
@@ -221,6 +244,27 @@
       return p;
     };
   }
+  function readSession(){try{var REF="mjetglnmivwphxyzflsz",c=String(document.cookie||"").split(";"),jar={},raw;
+    for(var i=0;i<c.length;i++){var q=c[i].indexOf("=");if(q>0)jar[c[i].slice(0,q).trim()]=c[i].slice(q+1);}
+    var nm="sb-"+REF+"-auth-token";raw=jar[nm];
+    if(raw===undefined){raw="";for(var n=0;jar[nm+"."+n]!==undefined;n++)raw+=jar[nm+"."+n];}
+    if(!raw)raw=lsGet(nm)||"";
+    try{raw=decodeURIComponent(raw);}catch(_){}
+    if(raw.indexOf("base64-")===0)raw=b64(raw.slice(7))||"";
+    var o=raw?JSON.parse(raw):null;if(Array.isArray(o))o={access_token:o[0]};if(o&&o.currentSession)o=o.currentSession;
+    return o&&o.access_token?o:null;}catch(_){return null;}}
+  function authOf(o){try{var h=o&&o.headers;if(!h)return"";
+    if(typeof h.get==="function")return h.get("Authorization")||h.get("authorization")||"";
+    return h.Authorization||h.authorization||"";}catch(_){return"";}}
+  /* ④ «JWT expired»: التاب كان في الخلفية أو الجهاز نايم، فالطلب خرج بتوكن قديم
+     قبل ما مكتبة الدخول تلحق تجدده. PostgREST بيرفضه قبل ما ينفّذ أي حاجة، فإعادته
+     آمنة. بنستنى التوكن الجديد (لحد ٨ ثواني) ونعيد الطلب بيه مرة واحدة، بدل ما
+     الكاشير يشوف «انتهت الجلسة» وهي ما انتهتش. */
+  function waitFreshToken(old,ms){return new Promise(function(res){var t0=realNow();
+    (function poll(){var s=readSession(),tk=s&&s.access_token;
+      if(tk&&("Bearer "+tk)!==old){var exp=s.expires_at?s.expires_at*1000:0;if(!exp||exp>Date.now()+5000)return res(tk);}
+      if(realNow()-t0>ms)return res(null);setTimeout(poll,400);})();});}
+  window.__omraaGuardJwt=1;
   /* لو التوكن المحفوظ صادر «في المستقبل» بالنسبة لساعة الجهاز، يبقى الساعة متأخرة أكيد */
   try{var raw=null,REF="mjetglnmivwphxyzflsz",c=String(document.cookie||"").split(";"),jar={};
     for(var i=0;i<c.length;i++){var q=c[i].indexOf("=");if(q>0)jar[c[i].slice(0,q).trim()]=c[i].slice(q+1);}

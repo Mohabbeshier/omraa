@@ -1,3 +1,6 @@
+/*! Al-Omraa System — © 2026 Mohab Beshier (Head of Performance) & Axis Marketing Agency.
+    All rights reserved. Proprietary — licensed to the Al-Omraa shop only; resale or use
+    for any other business is prohibited. See LICENSE.md. */
 /* Omraa POS service worker — network-first + قشرة محفوظة للأوفلاين.
    الاستراتيجية: كل طلب بيروح للشبكة الأول بـno-store، فالتحديث بيوصل
    من غير ما المستخدم يعمل حاجة. الكاش للأوفلاين بس. */

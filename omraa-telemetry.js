@@ -1,3 +1,6 @@
+/*! Al-Omraa System — © 2026 Mohab Beshier (Head of Performance) & Axis Marketing Agency.
+    All rights reserved. Proprietary — licensed to the Al-Omraa shop only; resale or use
+    for any other business is prohibited. See LICENSE.md. */
 /* Omraa POS — client error telemetry (decoupled · fail-safe · resilient).
    يسجّل أخطاء الفرونت في pos.omraa_error_log عبر RPC آمن (authenticated فقط).
    مبدأ أساسي: التتبّع ممنوع يكسر أو يبطّئ أي أكشن — بيبلع كل أخطائه. */

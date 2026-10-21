@@ -1,3 +1,6 @@
+/*! Al-Omraa System — © 2026 Mohab Beshier (Head of Performance) & Axis Marketing Agency.
+    All rights reserved. Proprietary — licensed to the Al-Omraa shop only; resale or use
+    for any other business is prohibited. See LICENSE.md. */
 /* ══════════════════════════════════════════════════════════════════
    شاشة الشحن — مبنية لإبراهيم، على الموبايل، بإيد واحدة.
 

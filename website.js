@@ -1,3 +1,6 @@
+/*! Al-Omraa System — © 2026 Mohab Beshier (Head of Performance) & Axis Marketing Agency.
+    All rights reserved. Proprietary — licensed to the Al-Omraa shop only; resale or use
+    for any other business is prohibited. See LICENSE.md. */
 /* ══════════════════════════════════════════════════════════════════
    مركز تحكّم الموقع — الأمراء
    مكان واحد يتحكم في كل حاجة على الويبسايت: المحتوى، المنتجات،

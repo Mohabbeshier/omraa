@@ -42,9 +42,15 @@
     try{fetch(RPC,{signal:ac&&ac.signal,method:"POST",headers:{"Content-Type":"application/json","apikey":ANON,"Authorization":"Bearer "+tk},
       body:JSON.stringify({p_context:rec.context,p_message:rec.message,p_detail:rec.detail||{},p_severity:rec.severity||"error",
         p_app_version:rec.app_version||null,p_ua:(navigator.userAgent||"").slice(0,400),p_online:!!navigator.onLine}),keepalive:true})
-      .then(function(r){tm&&clearTimeout(tm);if(!r.ok)onFail&&onFail(rec);}).catch(function(){tm&&clearTimeout(tm);onFail&&onFail(rec);});
+      .then(function(r){tm&&clearTimeout(tm);
+        // يتحفظ ويتعاد بس لو الرفض مؤقت (جلسة/شبكة/ضغط). 400 مثلًا = السجل نفسه بايظ، فمايلفّش للأبد.
+        if(!r.ok&&(r.status===401||r.status===403||r.status===408||r.status===429||r.status>=500))onFail&&onFail(rec);})
+      .catch(function(){tm&&clearTimeout(tm);onFail&&onFail(rec);});
     }catch(_){onFail&&onFail(rec);}}
-  function flush(){var q=readQ();if(!q.length)return;writeQ([]);q.forEach(function(rec){post(rec,enqueue);});}
+  var flushing=0;
+  function flush(){if(flushing)return;var q=readQ();if(!q.length||!token())return;flushing=1;
+    writeQ([]);q.forEach(function(rec){post(rec,enqueue);});setTimeout(function(){flushing=0;},3000);}
+  window.__omraaFlushLog=flush;
   function sanitize(x){if(!x||typeof x!=="object")return{};var o={},drop=/pass|token|secret|cost|price|جمله|تكلف/i;
     for(var k in x){if(k==="severity")continue;if(drop.test(k))continue;try{var v=x[k];o[k]=(typeof v==="object")?JSON.parse(JSON.stringify(v)):v;}catch(_){}}return o;}
   window.__omraaLog=function(context,err,extra){try{
@@ -55,7 +61,12 @@
   }catch(_){}};
   window.addEventListener("error",function(e){try{window.__omraaLog("global.window.onerror",e.error||e.message,{file:e.filename,line:e.lineno,col:e.colno});}catch(_){}});
   window.addEventListener("unhandledrejection",function(e){try{window.__omraaLog("global.unhandledrejection",e.reason,{});}catch(_){}});
+  /* الأخطاء اللي اترفضت وقت الجلسة بايظة بتستنى في الطابور. قبل كده كانت
+     بتتبعت بس لما الصفحة تتفتح من جديد؛ دلوقتي بتتبعت أول ما الجلسة تتجدد
+     (الحارس بينادي __omraaFlushLog)، ولما الصفحة ترجع قدّام، وكل دقيقتين. */
   window.addEventListener("online",flush);try{flush();}catch(_){}
+  try{document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")setTimeout(flush,1500);});}catch(_){}
+  setInterval(function(){try{flush();}catch(_){}},120000);
 })();
 
 /* === العين الشاملة (v2): مراقب استجابات Supabase + بانر انتهاء الجلسة ===
@@ -81,7 +92,13 @@
     var url="";try{url=String((u&&u.url)||u);}catch(_){}
     var p=OF.apply(this,arguments);
     try{if(url.indexOf(SB)===0&&url!==SB+"/rest/v1/"){p.then(function(r){try{
-      if(!r||r.ok)return;
+      if(!r||r.ok){
+        // تجديد جلسة نجح ⇐ ابعت الأخطاء اللي كانت مستنية
+        if(r&&r.ok&&url.indexOf("/auth/v1/token")>=0)setTimeout(function(){try{window.__omraaFlushLog&&window.__omraaFlushLog();}catch(_){}},1200);
+        return;}
+      // فشل طلبات التسجيل نفسها مايتسجّلش (كان بيعمل ضوضاء: 127 سطر «log_client_error 401»)،
+      // والسجل الأصلي أصلًا محفوظ في الطابور وهيتبعت بعدين.
+      if(/\/rpc\/pos_fn_log_(client_error|outage)/.test(url))return;
       var st=r.status;
       if(url.indexOf("/auth/v1/")>=0){if(st===400||st===401||st===403){A401++;banner();}return;}
       if(st===401){

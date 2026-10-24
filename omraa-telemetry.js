@@ -74,12 +74,30 @@
    ويكتشف الجلسة المنتهية (فشل auth متكرر) فيعرض بانر تسجيل دخول واضح. */
 (function(){try{
   if(window.__omraaEye)return;window.__omraaEye=1;
-  var SB="https://mjetglnmivwphxyzflsz.supabase.co",SEEN={},A401=0,BAN=0;
+  var SB="https://mjetglnmivwphxyzflsz.supabase.co",SEEN={},A401=0,BAN=0,PEND=0,LASTOK=0,BEL=null;
   function once(k){if(SEEN[k])return!1;SEEN[k]=1;return!0;}
+  /* البانر مابيظهرش من أول فشلين. على نت الموبايل البطيء، تجديد الجلسة ممكن
+     ياخد أكتر من 10 ثواني فيتلغي، وطلبين يترفضوا، وبعدها الجلسة ترجع لوحدها
+     (ده اللي كان بيحصل على الأندرويد: البانر بيظهر والجلسة سليمة على السيرفر).
+     دلوقتي بنستنى 12 ثانية: لو أي طلب بصلاحية الدخول نجح، مفيش بانر.
+     ولو البانر ظهر ورجعت طلبات تنجح، بيختفي لوحده. */
+  function isAnon(o){try{var h=o&&o.headers,a=null;
+    if(h&&typeof h.get==="function")a=h.get("Authorization")||h.get("authorization");
+    else if(h)a=h.Authorization||h.authorization;
+    if(!a)return true;var p=String(a).split(".")[1];if(!p)return true;
+    var j=JSON.parse(atob(p.replace(/-/g,"+").replace(/_/g,"/")));return !j||j.role==="anon";}catch(_){return true;}}
+  function recovered(){LASTOK=Date.now();A401=0;
+    if(BEL){try{BEL.remove();}catch(_){}BEL=null;BAN=0;
+      window.__omraaLog&&window.__omraaLog("session.banner.recovered",{message:"banner hidden: requests succeed again"},{severity:"info"});}}
   function banner(){try{
-    if(BAN||A401<2)return;BAN=1;
+    if(BAN||PEND||A401<2)return;
+    var t0=Date.now();
+    PEND=setTimeout(function(){PEND=0;if(LASTOK>t0||A401<2){A401=0;return;}show();},12000);
+  }catch(_){}}
+  function show(){try{
+    if(BAN)return;BAN=1;
     if(location.pathname.indexOf("/login")>=0)return;
-    var d=document.createElement("div");d.setAttribute("dir","rtl");
+    var d=document.createElement("div");d.setAttribute("dir","rtl");BEL=d;
     d.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;background:#b45309;color:#fff;padding:10px 14px;font:14px/1.5 system-ui,-apple-system,sans-serif;text-align:center;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.35)";
     d.textContent="⚠️ انتهت الجلسة — اضغط هنا لتسجيل الدخول من جديد";
     d.onclick=function(){location.href="/omraa/login";};
@@ -92,6 +110,7 @@
     var url="";try{url=String((u&&u.url)||u);}catch(_){}
     var p=OF.apply(this,arguments);
     try{if(url.indexOf(SB)===0&&url!==SB+"/rest/v1/"){p.then(function(r){try{
+      if(r&&r.ok&&url.indexOf("/rest/v1/")>0&&!/\/rpc\/pos_fn_(server_time|log_client_error|log_outage)/.test(url)&&!isAnon(o))recovered();
       if(!r||r.ok){
         // تجديد جلسة نجح ⇐ ابعت الأخطاء اللي كانت مستنية
         if(r&&r.ok&&url.indexOf("/auth/v1/token")>=0)setTimeout(function(){try{window.__omraaFlushLog&&window.__omraaFlushLog();}catch(_){}},1200);
@@ -352,4 +371,19 @@
   var s=document.createElement("script");
   s.src="/omraa/omraa-filters.js?v=1";s.async=true;
   (document.head||document.documentElement).appendChild(s);
+}catch(_){}})();
+
+/* === شاشة مرتجعات واحدة ============================================
+   returns.html بيحوّل لـ returns-v2.html من زمان، بس التنقّل من القايمة
+   الجانبية جوه التطبيق (من غير إعادة تحميل) كان بيفتح الشاشة القديمة
+   المترجمة. دلوقتي أي وصول لـ /omraa/returns بيروح للشاشة الجديدة:
+   فيها أسباب جاهزة، وتأكيد تجاوز المهلة، وإلغاء الفاتورة الغلط. */
+(function(){try{
+  if(window.__omraaRetRedirect)return;window.__omraaRetRedirect=1;
+  function chk(){try{var p=location.pathname.replace(/\/+$/,"");
+    if(p==="/omraa/returns")location.replace("/omraa/returns-v2.html"+(location.search||""));}catch(_){}}
+  chk();
+  ["pushState","replaceState"].forEach(function(k){var o=history[k];if(typeof o!=="function")return;
+    history[k]=function(){var r=o.apply(this,arguments);setTimeout(chk,0);return r;};});
+  window.addEventListener("popstate",chk);
 }catch(_){}})();

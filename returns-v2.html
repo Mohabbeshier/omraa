@@ -85,6 +85,23 @@
   .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);
         border-top-color:#fff;border-radius:99px;animation:sp .7s linear infinite;vertical-align:-2px}
   @keyframes sp{to{transform:rotate(360deg)}}
+  /* سبب المرتجع: اختيارات جاهزة عشان التقارير تبقى مفهومة، و«سبب تاني» يكتب بإيده */
+  .reasons{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+  .reasons button{border:1px solid var(--line);background:#f8fafc;border-radius:99px;padding:6px 12px;
+       font:inherit;font-size:13px;cursor:pointer;color:var(--ink)}
+  .reasons button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .sheet input.need{border-color:var(--danger);box-shadow:0 0 0 3px #fecaca}
+  .ovr{background:#fff7ed;border:1px solid #fdba74;border-radius:12px;padding:10px 12px;margin:0 0 12px;
+       font-size:13.5px;color:#7c3f12;display:flex;gap:9px;align-items:flex-start;cursor:pointer}
+  .ovr[hidden]{display:none}
+  .ovr input{width:20px;height:20px;margin:2px 0 0;flex:none;accent-color:var(--warn)}
+  .ovr.need{box-shadow:0 0 0 3px #fdba74}
+  .askerr{color:var(--danger);font-size:13px;margin:-4px 0 10px}
+  .askerr:empty{display:none}
+  /* إلغاء فاتورة اتعملت بالغلط (أول 30 دقيقة) */
+  .voidbox{background:#eef2ff;border:1px solid #c7d2fe;border-radius:14px;padding:12px 14px;margin-bottom:10px;
+       display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13.5px}
+  .voidbox .btn{min-height:40px;padding:8px 14px;font-size:14px;background:#fff;border:1px solid #c7d2fe;color:#3730a3}
 </style>
 <meta name="author" content="Mohab Beshier — Axis Marketing Agency"/><meta name="copyright" content="© 2026 Mohab Beshier &amp; Axis Marketing Agency. All rights reserved. Licensed to Al-Omraa only."/></head>
 <body>
@@ -116,7 +133,17 @@
   <div class="sheet">
     <h3>سبب الإرجاع</h3>
     <p id="askWhat"></p>
-    <input id="reason" placeholder="مثال: مقاس غير مناسب" autocomplete="off">
+    <div class="reasons" id="reasonChips">
+      <button type="button">مقاس</button>
+      <button type="button">عيب في المنتج</button>
+      <button type="button">رفض الاستلام</button>
+      <button type="button">استلام جزئي</button>
+      <button type="button">استبدال</button>
+      <button type="button">العميلة غيّرت رأيها</button>
+    </div>
+    <input id="reason" placeholder="أو اكتبي سبب تاني" autocomplete="off">
+    <label class="ovr" id="ovr" hidden><input type="checkbox" id="ovrChk"><span id="ovrText"></span></label>
+    <div class="askerr" id="askErr"></div>
     <div class="row">
       <button class="btn btn-ghost" id="askNo">إلغاء</button>
       <button class="btn btn-primary" id="askYes">تأكيد الإرجاع</button>
@@ -136,6 +163,33 @@
   var ask = document.getElementById("ask");
   var askWhat = document.getElementById("askWhat");
   var reasonIn = document.getElementById("reason");
+  var chipsEl = document.getElementById("reasonChips");
+  var ovrEl = document.getElementById("ovr");
+  var ovrChk = document.getElementById("ovrChk");
+  var ovrText = document.getElementById("ovrText");
+  var askErr = document.getElementById("askErr");
+
+  function syncChips() {
+    var v = reasonIn.value.trim();
+    Array.prototype.forEach.call(chipsEl.querySelectorAll("button"), function (b) {
+      b.classList.toggle("on", b.textContent === v);
+    });
+    if (v) reasonIn.classList.remove("need");
+  }
+  chipsEl.addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    reasonIn.value = b.textContent; syncChips(); askErr.textContent = "";
+  });
+  reasonIn.addEventListener("input", syncChips);
+  ovrChk.addEventListener("change", function () { ovrEl.classList.remove("need"); askErr.textContent = ""; });
+
+  /* المالك بيتجاوز المهلة بتأكيد صريح منه، مش في السكوت. */
+  function showOverride(item, ageDays, win) {
+    ovrText.textContent = "الفاتورة بقالها " + Math.round(Number(ageDays)) + " يوم والمهلة " +
+      win + " يوم — أنا موافق أتجاوز المهلة للقطعة دي.";
+    ovrChk.checked = false;
+    ovrEl.hidden = false;
+  }
 
   var isOwner = false;
   var windowDays = null;
@@ -173,7 +227,7 @@
         isOwner = !!(me && me.is_owner);
         if (me && me.return_window_days != null) windowDays = me.return_window_days;
         roleEl.innerHTML = isOwner
-          ? "داخلة كـ<b>مالك</b> — تقدري ترجّعي في أي وقت."
+          ? "داخلة كـ<b>مالك</b> — بعد المهلة بتأكيد منك."
           : "داخلة كـ<b>موظفة</b> — الإرجاع خلال " + (windowDays == null ? "المهلة" : windowDays + " يوم") + " بس.";
       })
       .catch(function (e) {
@@ -247,10 +301,11 @@
             "</span>" +
           "</div>" +
           '<button class="btn btn-primary" data-i="' + i + '"' + (blocked ? " disabled" : "") + ">" +
-            (blocked ? "بعد المهلة — محتاج المالك" : "رجّعي دي") +
+            (blocked ? "بعد المهلة — محتاج المالك" : (expired ? "رجّعي دي (بعد المهلة — هتأكّد)" : "رجّعي دي")) +
           "</button>" +
         "</div>";
     }).join("");
+    out.insertAdjacentHTML("afterbegin", voidBoxes(list));
 
     Array.prototype.forEach.call(out.querySelectorAll("button[data-i]"), function (b) {
       b.addEventListener("click", function () {
@@ -258,12 +313,47 @@
         pending = c;
         askWhat.textContent = c.product + " — مقاس " + c.size + " · " + c.color +
                               " (" + (c.sale_code || "") + ")";
-        reasonIn.value = "";
+        reasonIn.value = ""; reasonIn.classList.remove("need"); syncChips();
+        askErr.textContent = "";
+        ovrEl.hidden = true; ovrEl.classList.remove("need"); ovrChk.checked = false;
+        c._expired = windowDays != null && Number(c.age_days) > Number(windowDays);
+        if (c._expired && isOwner) showOverride(c, c.age_days, windowDays);
         ask.hidden = false;
-        reasonIn.focus();
       });
     });
   }
+
+  /* فاتورة اتعملت بالغلط: أول 30 دقيقة تتلغي كلها مرة واحدة، وتتسجّل «إلغاء فاتورة»
+     مش مرتجع، عشان إحصائيات المرتجعات ماتتلخبطش. السيرفر هو اللي بيتأكد من الوقت. */
+  function voidBoxes(list) {
+    var seen = {}, html = "";
+    list.forEach(function (c) {
+      if (!c.sale_code || seen[c.sale_code] || !c.sold_at) return;
+      var mins = (Date.now() - new Date(c.sold_at).getTime()) / 60000;
+      if (!(mins >= -5 && mins <= 30)) return;
+      seen[c.sale_code] = 1;
+      html += '<div class="voidbox"><span>الفاتورة <b>' + esc(c.sale_code) + "</b> اتعملت من " +
+              Math.max(0, Math.round(mins)) + " دقيقة</span>" +
+              '<button class="btn" data-void="' + esc(c.sale_code) + '">إلغاء الفاتورة كلها</button></div>';
+    });
+    return html;
+  }
+  out.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button[data-void]");
+    if (!b || busy) return;
+    var code = b.getAttribute("data-void");
+    if (!window.confirm("إلغاء الفاتورة " + code + " كلها؟ كل القطع هترجع المخزن، وهتتسجّل «إلغاء فاتورة».")) return;
+    busy = true; b.disabled = true; b.textContent = "بنلغي…";
+    rpc("pos_fn_void_sale", { p_code: code, p_reason: null }, { retries: 0 })
+      .then(function (r) {
+        if (!r || r.ok === false) { note("err", (r && r.message) || "الإلغاء مانفعش."); return; }
+        out.innerHTML = ""; q.value = "";
+        msgBox.innerHTML = '<div class="msg" style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534">' +
+          "اتلغت الفاتورة " + esc(r.code) + " — " + esc(r.items) + " قطعة رجعت المخزن (" + money(r.refunded) + ").</div>";
+      })
+      .catch(function (err) { note("err", err.message || "الإلغاء مانفعش."); })
+      .finally(function () { busy = false; b.disabled = false; b.textContent = "إلغاء الفاتورة كلها"; });
+  });
 
   var CHECK_LABEL = {
     back_in_stock: "القطعة رجعت للمخزون",
@@ -276,6 +366,12 @@
 
   function doReturn() {
     if (busy || !pending) return;
+    if (!reasonIn.value.trim()) {
+      reasonIn.classList.add("need"); askErr.textContent = "اختاري سبب الإرجاع."; return;
+    }
+    if (!ovrEl.hidden && !ovrChk.checked) {
+      ovrEl.classList.add("need"); askErr.textContent = "القطعة بعد المهلة — علّمي على التأكيد الأول."; return;
+    }
     busy = true;
     var yes = document.getElementById("askYes");
     var old = yes.innerHTML;
@@ -291,9 +387,16 @@
       p_item: item.item_id,
       p_reason: reasonIn.value.trim() || null,
       p_actor: null,          // السيرفر بياخد الهوية من الجلسة، مش من هنا
-      p_override: false
+      p_override: !ovrEl.hidden && ovrChk.checked
     }, { retries: 0 })
       .then(function (r) {
+        if (r && r.ok === false && r.expired && isOwner) {
+          // السيرفر شايف إنها بعد المهلة (ساعة الجهاز ممكن تكون غلط): نطلب التأكيد في نفس النافذة
+          showOverride(item, r.age_days, r.window_days);
+          ovrEl.classList.add("need"); askErr.textContent = r.message || "";
+          pending = item;  // نسيب النافذة مفتوحة على نفس القطعة
+          return;
+        }
         ask.hidden = true;
         if (r && r.ok === false) { note("err", r.message || "المرتجع مانفعش."); return; }
         /* امسحي البحث الأول: showResult بيكتب في نفس المكان، ولو اتنضّف
@@ -303,7 +406,8 @@
       })
       .catch(function (e) { ask.hidden = true; note("err", e.message || "المرتجع مانفعش."); })
       .finally(function () {
-        busy = false; yes.innerHTML = old; yes.disabled = false; pending = null;
+        busy = false; yes.innerHTML = old; yes.disabled = false;
+        if (ask.hidden) pending = null;
       });
   }
 

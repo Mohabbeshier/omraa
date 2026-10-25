@@ -301,6 +301,129 @@ function guessColor(filename, colors) {
   return null;
 }
 
+/* ── تخمين اللون من الصورة نفسها ─────────────────────────────────────
+   لما اسم الملف مايقولش اللون، بنبص على ألوان الصورة: بنشيل الخلفية
+   (لون حواف الصورة)، وبنشيل الحاجات المشتركة بين صور الدفعة كلها
+   (النعل والبطانة غالبًا نفس اللون في كل ألوان الموديل)، واللي فاضل هو
+   لون الجزمة. بنقارنه بألوان الموديل ده بس، مش بكل الألوان.
+   ده تخمين: الصورة بتظهر عليها «تخمين» عشان تتراجع. الألوان الفاتحة
+   القريبة من بعض (أبيض/بيج/دهبي/فضي) أصعب حاجة، وبنسيبها من غير لون
+   لو مش واثقين بدل ما نحط لون غلط. وكده كده الصور كلها بتظهر في معرض
+   الموديل على الموقع؛ اللون بس بيخلّي الزبونة توصل للصورة بضغطة. */
+const COLOR_REF = [
+  [["روز جولد", "روزجولد"], [210, 150, 130]],
+  [["اسود"], [28, 28, 30]], [["ابيض", "اوف وايت"], [238, 236, 228]],
+  [["بيج", "شمواه", "نود"], [222, 200, 170]], [["هافان", "كونياك"], [176, 100, 50]],
+  [["بني"], [95, 62, 42]], [["فضي", "قضي", "سيلفر"], [196, 198, 200]],
+  [["ذهبي", "دهبي", "هبي", "جولد"], [212, 175, 110]], [["كحلي"], [32, 40, 70]],
+  [["رمادي", "رصاصي"], [128, 126, 124]], [["نبيتي", "برجندي", "عنابي"], [120, 30, 40]],
+  [["كافيه"], [150, 115, 90]], [["روز", "بينك", "وردي"], [228, 170, 170]],
+  [["احمر"], [185, 40, 40]], [["زيتي"], [85, 95, 50]], [["ازرق"], [60, 100, 175]],
+  [["لبني"], [160, 195, 225]], [["نحاسي"], [180, 105, 60]], [["فوشيا"], [205, 45, 130]],
+  [["موف", "بنفسجي"], [150, 110, 170]], [["جملي"], [190, 140, 85]],
+  [["اخضر"], [45, 120, 65]], [["اورنج", "برتقالي"], [230, 120, 35]],
+];
+function toLab([r, g, b]) {
+  const f = (u) => { u /= 255; return u > 0.04045 ? ((u + 0.055) / 1.055) ** 2.4 : u / 12.92; };
+  const R = f(r), G = f(g), B = f(b);
+  const x = (0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047, y = 0.2126 * R + 0.7152 * G + 0.0722 * B,
+        z = (0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883;
+  const h = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  const fx = h(x), fy = h(y), fz = h(z);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+/* الألوان الفاتحة والمعدنية شبه بعض جدًا في الصور (وبتتلخبط مع الخلفية
+   الفاتحة والبطانة)، فمابنخمّنهاش خالص — أحسن من تخمين غلط. */
+const NO_GUESS = new Set(["ابيض", "اوف وايت", "بيج", "شمواه", "نود", "ذهبي", "دهبي", "هبي", "جولد",
+  "فضي", "قضي", "سيلفر", "روز", "بينك", "وردي", "لبني", "روز جولد", "روزجولد"]);
+const guessable = (c) => !NO_GUESS.has(normColorName(c));
+const labDist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const normColorName = (c) => String(c || "").trim().toLowerCase()
+  .replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه")
+  .split(/\s*[x×]\s*/)[0].trim();
+function refLab(colorName) {
+  const n = normColorName(colorName);
+  if (!n) return null;
+  for (const [keys, rgb] of COLOR_REF) if (keys.some((k) => n === k || n.startsWith(k + " ") || n === k.replace(/\s/g, ""))) return toLab(rgb);
+  for (const [keys, rgb] of COLOR_REF) if (keys.some((k) => n.startsWith(k))) return toLab(rgb);
+  return null;
+}
+async function imageHist(file) {
+  const N = 64;
+  let src;
+  try { src = await createImageBitmap(file); }
+  catch (_) {
+    src = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(file); });
+  }
+  const cv = document.createElement("canvas"); cv.width = N; cv.height = N;
+  const cx = cv.getContext("2d", { willReadFrequently: true });
+  cx.drawImage(src, 0, 0, N, N);
+  const px = cx.getImageData(0, 0, N, N).data;
+  const at = (x, y) => { const i = (y * N + x) * 4; return toLab([px[i], px[i + 1], px[i + 2]]); };
+  const border = [];
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+    if (x < 3 || y < 3 || x > N - 4 || y > N - 4) border.push(at(x, y));
+  const med = [0, 1, 2].map((k) => border.map((v) => v[k]).sort((a, b) => a - b)[border.length >> 1]);
+  const h = new Map(); let tot = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const L = at(x, y);
+    if (labDist(L, med) < 18) continue;                       // الخلفية
+    const k = `${Math.round(L[0] / 12)},${Math.round(L[1] / 10)},${Math.round(L[2] / 10)}`;
+    const e = h.get(k) || [0, 0, 0, 0]; e[0]++; e[1] += L[0]; e[2] += L[1]; e[3] += L[2]; h.set(k, e); tot++;
+  }
+  const out = new Map();
+  h.forEach((e, k) => out.set(k, [e[0] / Math.max(tot, 1), e[1] / e[0], e[2] / e[0], e[3] / e[0]]));
+  return out;
+}
+/* rows: [{key, file}] — targets: مفاتيح الصور اللي محتاجة تخمين.
+   بيرجّع {key: color} للصور اللي واثقين من لونها بس. */
+async function detectColors(rows, colors, targets) {
+  const refs = colors.map((c) => [c, refLab(c)]).filter((x) => x[1]);
+  if (refs.length < 2 || !rows.length) return {};
+  const H = new Map();
+  for (const r of rows) { try { H.set(r.key, await imageHist(r.file)); } catch (_) {} }
+  const keys = [...H.keys()];
+  const all = new Set(); H.forEach((h) => h.forEach((_, k) => all.add(k)));
+  const medOf = new Map();
+  if (keys.length >= 3) all.forEach((k) => {
+    const v = keys.map((r) => (H.get(r).get(k) || [0])[0]).sort((a, b) => a - b);
+    medOf.set(k, v[v.length >> 1]);
+  });
+  const want = targets.filter((k) => H.has(k));
+  const lab = new Map();
+  for (const key of want) {
+    const h = H.get(key);
+    const cand = [];
+    h.forEach((v, k) => { const s = v[0] - (medOf.get(k) || 0); if (s > 0) cand.push([s, [v[1], v[2], v[3]]]); });
+    if (!cand.length) continue;
+    cand.sort((a, b) => b[0] - a[0]);
+    let best = cand[0];
+    /* البطانة السودا بتغلب في الجزم الغامقة (زيتي/نبيتي/كحلي). لو الأقوى أسود
+       وفيه لون تاني واضح وقوي كفاية، هو ده لون الجزمة. */
+    if (best[1][0] < 20) {
+      const alt = cand.find((c) => c[1][0] >= 20 && labDist(c[1], best[1]) > 20);
+      if (alt && alt[0] >= 0.35 * best[0]) best = alt;
+    }
+    const acc = [0, 0, 0, 0];
+    h.forEach((v, k) => { const s = v[0] - (medOf.get(k) || 0); const L = [v[1], v[2], v[3]];
+      if (s > 0 && labDist(L, best[1]) < 20) { acc[0] += s; acc[1] += L[0] * s; acc[2] += L[1] * s; acc[3] += L[2] * s; } });
+    lab.set(key, [acc[1] / acc[0], acc[2] / acc[0], acc[3] / acc[0]]);
+  }
+  const out = {};
+  const ids = [...lab.keys()];
+  if (ids.length > 1 && ids.length <= refs.length) {
+    // صورة لكل لون (أشهر حالة): كل لون لصورة واحدة، الأقرب الأول
+    const pairs = [];
+    ids.forEach((k) => refs.forEach(([c, L]) => pairs.push([labDist(lab.get(k), L), k, c])));
+    pairs.sort((a, b) => a[0] - b[0]);
+    const uk = new Set(), uc = new Set();
+    for (const [d, k, c] of pairs) { if (uk.has(k) || uc.has(c)) continue; uk.add(k); uc.add(c); if (d < 32 && guessable(c)) out[k] = c; }
+  }
+  /* صور أكتر من عدد الألوان = غالبًا كذا زاوية لنفس اللون. التخمين
+     الفردي هنا جاب نتايج غلط في التجربة، فبنسيبها من غير لون. */
+  return out;
+}
+
 /* رفع متوازي بسقف ٣ — أسرع بكتير من واحدة ورا واحدة على ٤٠ صورة،
    ومن غير ما يخنق اتصال بيتي أو يرمي الرفعات على بعض. */
 async function runPool(items, limit, worker) {
@@ -610,10 +733,26 @@ function Editor({ product, onClose, onChanged, initialColor }) {
     });
   }, [colors, sel]);
 
+  /* اللي اسم ملفه ماقالش لونه: نخمّن من ألوان الصورة نفسها (مقارنةً بباقي
+     صور الدفعة). مابنلمسش صورة اختاري لونها بإيدك. */
+  const guessing = useRef(false);
+  const guessFromPixels = async (rows) => {
+    if (guessing.current) return;
+    const targets = rows.filter((r) => !r.color && !r.manual && r.status !== "error").map((r) => r.key);
+    if (!targets.length || colors.length < 2) return;
+    let sug = {};
+    guessing.current = true;
+    try { sug = await detectColors(rows, colors, targets); } catch (_) { return; }
+    finally { guessing.current = false; }
+    if (!Object.keys(sug).length) return;
+    setTray((t) => t.map((r) => (!r.color && !r.manual && sug[r.key])
+      ? { ...r, color: sug[r.key], guessed: "pixel" } : r));
+  };
+
   const setTrayColor = (key, color) =>
-    setTray((t) => t.map((r) => r.key === key ? { ...r, color, guessed: false } : r));
+    setTray((t) => t.map((r) => r.key === key ? { ...r, color, guessed: false, manual: true } : r));
   const applyToAll = (color) =>
-    setTray((t) => t.map((r) => ({ ...r, color, guessed: false })));
+    setTray((t) => t.map((r) => ({ ...r, color, guessed: false, manual: true })));
   const dropFromTray = (key) =>
     setTray((t) => {
       const row = t.find((r) => r.key === key);
@@ -624,16 +763,14 @@ function Editor({ product, onClose, onChanged, initialColor }) {
   // ٤٠ صورة = ٤٠ blob URL محجوزة في الذاكرة لحد ما التاب يتقفل.
   const trayRef = useRef([]);
   useEffect(() => { trayRef.current = tray; }, [tray]);
+  // صور جديدة دخلت الصينية ⇐ خمّن لون اللي من غير لون
+  useEffect(() => { if (tray.length) guessFromPixels(tray); }, [tray.length]);
   useEffect(() => () => trayRef.current.forEach((r) => URL.revokeObjectURL(r.preview)), []);
 
   const untagged = colors.length ? tray.filter((r) => !r.color).length : 0;
 
   const uploadAll = async () => {
     if (!tray.length || uploading) return;
-    if (untagged > 0) {
-      toast(`${untagged} صورة لسه من غير لون — حدّديه أو خليها «عامة»`, "err");
-      return;
-    }
     setUploading(true); setDone(0);
     const results = [];
     await runPool(tray, 3, async (row) => {
@@ -736,6 +873,7 @@ function Editor({ product, onClose, onChanged, initialColor }) {
 
   const missing = colors.filter((c) => countFor(c) === 0);
   const guessedCount = tray.filter((r) => r.guessed).length;
+  const pixelCount = tray.filter((r) => r.guessed === "pixel").length;
 
   return (
     <>
@@ -777,10 +915,15 @@ function Editor({ product, onClose, onChanged, initialColor }) {
 
           {colors.length > 0 ? (
             <>
-              {missing.length > 0 && (
+              <div className="tip" style={{ marginTop: 0 }}>
+                كل صور الموديل بتظهر مع بعض في معرض واحد على الموقع، والزبونة بتقلّب فيهم.
+                اللون <strong>اختياري</strong>: لو علّمتي صورة بلون، الزبونة لما تدوس على اللون ده
+                بتروح للصورة بتاعته على طول.
+              </div>
+              {missing.length > 0 && images.length > 0 && (
                 <div className="warnbox">
-                  لسه من غير صور: <strong>{missing.join("، ")}</strong>.
-                  العميلة لما تختار لون من دول هتشوف صورة لون تاني.
+                  ألوان مالهاش صورة متعلّمة: <strong>{missing.join("، ")}</strong>.
+                  مش مشكلة لو صورها موجودة من غير لون — بس الضغط على اللون مش هينقلها لصورته.
                 </div>
               )}
               <div className="clist">
@@ -798,7 +941,7 @@ function Editor({ product, onClose, onChanged, initialColor }) {
                 <div className={`crow${sel === GENERIC ? " on" : ""}`} onClick={() => setSel(GENERIC)}>
                   {firstFor(GENERIC) ? <img className="cthumb" src={firstFor(GENERIC).thumb || firstFor(GENERIC).url} alt="" />
                                      : <span className="cthumb empty">＋</span>}
-                  <span className="cname">صور عامة (كل الألوان)</span>
+                  <span className="cname">من غير لون</span>
                   <span className={`ccount${countFor(GENERIC) ? " has" : ""}`}>
                     {countFor(GENERIC) ? `${countFor(GENERIC)} صورة` : "لسه"}</span>
                 </div>
@@ -858,7 +1001,7 @@ function Editor({ product, onClose, onChanged, initialColor }) {
                   <strong>{tray.length} صورة جاهزة للرفع</strong>
                   {guessedCount > 0 && (
                     <p className="sub" style={{ margin: 0 }}>
-                      خمّنت لون {guessedCount} منهم من اسم الملف — راجعيهم بسرعة.
+                      خمّنت لون {guessedCount} منهم {pixelCount ? (pixelCount === guessedCount ? "من ألوان الصورة" : "من اسم الملف وألوان الصورة") : "من اسم الملف"} — راجعيهم بسرعة.
                     </p>
                   )}
                 </div>
@@ -877,13 +1020,13 @@ function Editor({ product, onClose, onChanged, initialColor }) {
                 {tray.map((r) => (
                   <div className={`tcard${r.status === "error" ? " err" : ""}`} key={r.key}>
                     <img src={r.preview} alt="" />
-                    {r.guessed && <span className="guess">تخمين</span>}
+                    {r.guessed && <span className="guess">{r.guessed === "pixel" ? "تخمين من الصورة" : "تخمين"}</span>}
                     <span className="sz">{fmtSize(r.size)}</span>
                     {!uploading && <button className="x" onClick={() => dropFromTray(r.key)}>✕</button>}
                     {colors.length > 0 ? (
                       <select value={r.color} disabled={uploading}
                               onChange={(e) => setTrayColor(r.key, e.target.value)}>
-                        <option value="">— اختاري اللون —</option>
+                        <option value="">من غير لون (معرض الموديل)</option>
                         {colors.map((c) => <option key={c} value={c}>{c}</option>)}
                         <option value={GENERIC}>عامة</option>
                       </select>
@@ -1115,6 +1258,7 @@ function BulkPanel({ products, onDone }) {
         return { ...r, product: prod, color: color || "", how: x.kind || "none", cands: x.candidates || null };
       });
       setRows((t) => [...t, ...ready]);
+      guessBulkPixels([...rows, ...ready]);
       const okN = ready.filter((r) => r.product).length;
       toast(`اتعرّف ${okN} من ${ready.length} صورة تلقائيًا${okN < ready.length ? " — الباقي اختاري موديله" : " ✓"}`,
             okN < ready.length ? "" : "ok");
@@ -1123,6 +1267,21 @@ function BulkPanel({ products, onDone }) {
   };
 
   const setRow = (key, patch) => setRows((t) => t.map((r) => r.key === key ? { ...r, ...patch } : r));
+  /* نفس تخمين ألوان الصورة، لكل موديل لوحده (الصور بتتقارن بصور نفس الموديل بس). */
+  const guessBulkPixels = async (all) => {
+    const groups = new Map();
+    all.forEach((r) => { if (r.product && r.status !== "done") {
+      const g = groups.get(r.product.id) || []; g.push(r); groups.set(r.product.id, g); } });
+    for (const g of groups.values()) {
+      const cols = g[0].product.colors || [];
+      const targets = g.filter((r) => !r.color && !r.manual).map((r) => r.key);
+      if (!targets.length || cols.length < 2) continue;
+      let sug = {};
+      try { sug = await detectColors(g, cols, targets); } catch (_) { continue; }
+      if (Object.keys(sug).length)
+        setRows((t) => t.map((r) => (!r.color && !r.manual && sug[r.key]) ? { ...r, color: sug[r.key], how: r.how, guessed: "pixel" } : r));
+    }
+  };
   const dropRow = (key) => setRows((t) => {
     const r = t.find((x) => x.key === key); if (r) URL.revokeObjectURL(r.preview);
     return t.filter((x) => x.key !== key);
@@ -1135,7 +1294,6 @@ function BulkPanel({ products, onDone }) {
   const uploadAll = async () => {
     const todo = rows.filter((r) => r.product && r.status !== "done");
     if (!todo.length || busy) return;
-    if (noColor > 0 && !confirm(`${noColor} صورة من غير لون — هتترفع «عامة» لكل ألوان الموديل. نكمّل؟`)) return;
     setBusy(true); setDone(0);
     await runPool(todo, 3, async (row) => {
       try {
@@ -1221,11 +1379,14 @@ function BulkPanel({ products, onDone }) {
                                  onPick={(p) => setRow(r.key, { product: p, how: "manual", color: guessColor(r.file.name, p.colors || []) || "" })} />
                   )}
                   {r.product && (r.product.colors || []).length > 0 && (
-                    <select value={r.color} disabled={busy} onChange={(e) => setRow(r.key, { color: e.target.value })}>
-                      <option value="">— اللون —</option>
+                    <select value={r.color} disabled={busy} onChange={(e) => setRow(r.key, { color: e.target.value, manual: true, guessed: false })}>
+                      <option value="">من غير لون</option>
                       {r.product.colors.map((c) => <option key={c} value={c}>{c}</option>)}
                       <option value={GENERIC}>عامة (كل الألوان)</option>
                     </select>
+                  )}
+                  {r.guessed === "pixel" && (
+                    <span style={{ fontSize: 11, color: "var(--warn, #b45309)" }}>تخمين من الصورة — راجعيه</span>
                   )}
                   {r.status === "error" && <div className="bad-inline">{r.error}</div>}
                 </div>

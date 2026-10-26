@@ -1,0 +1,19 @@
+{
+  "payload": {
+    "v": 1,
+    "id": "OMR-2026-A",
+    "licensee": "محل الأمراء",
+    "slot": 1,
+    "max_slots": 2,
+    "installation": "التركيبة الأساسية",
+    "project": "الأمراء — السيستم الأساسي",
+    "supabase_ref": "mjetglnmivwphxyzflsz",
+    "hosts": [
+      "mohabbeshier.github.io"
+    ],
+    "issued": "2026-10-26",
+    "owner": "Mohab Beshier — Axis Marketing Agency",
+    "contact": "mohabbeshier@gmail.com"
+  },
+  "sig": "a/kTa2tUV1xzC989qRoYowuvQ6NZGnFYyF2AKifginCpwTkEdZSjO+YU6ex7U7I6bW/TTG1wAu0pSWE1fi15Dw=="
+}

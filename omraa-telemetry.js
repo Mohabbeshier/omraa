@@ -373,6 +373,17 @@
   (document.head||document.documentElement).appendChild(s);
 }catch(_){}})();
 
+/* === ترخيص التركيبة (LICENSE.md) ==================================
+   بيتأكد إن license.json موقّع من المالك ومطابق للدومين ولمشروع Supabase.
+   ملف منفصل، ومابيأخّرش أي حاجة (بيشتغل بعد التحميل). */
+(function(){try{
+  if(window.__omraaLicLoader)return;window.__omraaLicLoader=1;
+  var s=document.createElement("script");
+  s.src="/omraa/omraa-license.js?v=1";s.async=true;
+  s.setAttribute("data-base","/omraa");s.setAttribute("data-ref","mjetglnmivwphxyzflsz");
+  (document.head||document.documentElement).appendChild(s);
+}catch(_){}})();
+
 /* === شاشة مرتجعات واحدة ============================================
    returns.html بيحوّل لـ returns-v2.html من زمان، بس التنقّل من القايمة
    الجانبية جوه التطبيق (من غير إعادة تحميل) كان بيفتح الشاشة القديمة

@@ -533,6 +533,7 @@
     ping: ping,
     // العمليات
     rpc: rpc,
+    getToken: token,   // جلسة المستخدم الحالية (لنداء Edge Functions زي pos-staff)
     newKey: newKey,
     enqueue: enqueue,
     flush: flush,

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>إضافة موظف — الأمراء</title>
+<link rel="icon" href="icon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
+         --brand:#4f46e5; --ok:#16a34a; --warn:#b45309; --danger:#dc2626; }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Alexandria,system-ui,sans-serif;
+       font-size:15px;line-height:1.6;padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+  header.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:12px 14px}
+  .hrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  h1{font-size:18px;margin:0;font-weight:700}
+  a.back{color:var(--brand);font-size:13px;text-decoration:none;white-space:nowrap}
+  .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .wrap{padding:12px;max-width:620px;margin:0 auto;display:grid;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .card h2{font-size:16px;margin:0 0 10px}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input,select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;background:#fff}
+  .pw{display:flex;gap:8px}
+  .pw input{flex:1;direction:ltr;text-align:left;font-family:ui-monospace,Consolas,monospace}
+  .btn{border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weight:700;cursor:pointer;min-height:46px}
+  .btn-primary{background:var(--ink);color:#fff;width:100%;margin-top:14px}
+  .btn-ghost{background:#fff;border:1px solid var(--line);color:var(--ink);white-space:nowrap}
+  .btn[disabled]{opacity:.5;cursor:not-allowed}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#7c3f12;border-radius:10px;padding:8px 10px;font-size:13px;margin-top:8px}
+  .msg{border-radius:12px;padding:12px 14px;font-size:14px}
+  .msg.err{background:#fef2f2;border:1px solid #fecaca;color:var(--danger)}
+  .msg.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+  .msg:empty{display:none}
+  .creds{margin-top:8px;background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:10px;direction:ltr;text-align:left;
+         font-family:ui-monospace,Consolas,monospace;font-size:13px;white-space:pre-wrap}
+  .list{display:grid;gap:6px;font-size:14px}
+  .row{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:6px 0}
+  .row:last-child{border:0}
+  .tag{font-size:12px;border-radius:99px;padding:1px 9px;border:1px solid var(--line);color:var(--muted)}
+  .tag.owner{border-color:#c7d2fe;color:#3730a3;background:#eef2ff}
+  .tag.off{border-color:#fecaca;color:var(--danger)}
+</style>
+<meta name="author" content="Mohab Beshier — Axis Marketing Agency"/><meta name="copyright" content="© 2026 Mohab Beshier &amp; Axis Marketing Agency. All rights reserved. Licensed to Al-Omraa only."/></head>
+<body>
+<header class="top">
+  <div class="hrow">
+    <div>
+      <h1>إضافة موظف</h1>
+      <div class="sub" id="who">—</div>
+    </div>
+    <a class="back" href="users.html">→ المستخدمون</a>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="msg" id="msg"></div>
+
+  <div class="card" id="addCard">
+    <h2>➕ إضافة موظف جديد</h2>
+    <label for="name">الاسم</label>
+    <input id="name" autocomplete="off" placeholder="مثال: سارة محمد">
+    <label for="email">الإيميل (اللي هيدخل بيه)</label>
+    <input id="email" type="email" dir="ltr" autocomplete="off" placeholder="sara@example.com">
+    <label for="pw1">كلمة السر</label>
+    <div class="pw"><input id="pw1" autocomplete="new-password"><button class="btn btn-ghost" type="button" data-gen="pw1">ولّد واحدة</button></div>
+    <label for="role">الصلاحية</label>
+    <select id="role">
+      <option value="employee">موظف — بيع ومرتجع ومخزون (من غير تكاليف وأرباح)</option>
+      <option value="owner">مالك — كل حاجة</option>
+    </select>
+    <div class="warn" id="ownerWarn" hidden>صلاحية المالك بتشوف التكاليف والأرباح، وبتتحكم في الموظفين والنسخ الاحتياطي. اديها لصاحب المحل بس.</div>
+    <button class="btn btn-primary" id="addBtn">إنشاء الحساب</button>
+    <div class="creds" id="creds" hidden></div>
+  </div>
+
+  <div class="card">
+    <h2>🔑 تغيير كلمة سر موظف</h2>
+    <label for="who2">الموظف</label>
+    <select id="who2"><option value="">— اختار —</option></select>
+    <label for="pw2">كلمة السر الجديدة</label>
+    <div class="pw"><input id="pw2" autocomplete="new-password"><button class="btn btn-ghost" type="button" data-gen="pw2">ولّد واحدة</button></div>
+    <button class="btn btn-primary" id="resetBtn">تغيير كلمة السر</button>
+  </div>
+
+  <div class="card">
+    <h2>👥 الحسابات الحالية</h2>
+    <div class="list" id="list">بنحمّل…</div>
+    <div class="sub">إيقاف موظف بيتعمل من صفحة «المستخدمون».</div>
+  </div>
+</div>
+
+<script src="omraa-telemetry.js"></script><script src="omraa-net.js?v=2"></script>
+<script>
+(function () {
+  "use strict";
+  var FN = "https://mjetglnmivwphxyzflsz.supabase.co/functions/v1/pos-staff";
+  var REST = "https://mjetglnmivwphxyzflsz.supabase.co/rest/v1/pos_profiles?select=id,full_name,role,active&order=created_at.desc";
+  var ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1qZXRnbG5taXZ3cGh4eXpmbHN6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA4NTcwODgsImV4cCI6MjA5NjQzMzA4OH0.X6Rvxo4owPcBwE4HqXLm5fuPDSdEo8PV9oBV-bHsGrg";
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $("msg"), busy = false;
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function note(kind, t) { msg.className = "msg " + kind; msg.textContent = t; if (t) msg.scrollIntoView({ block: "nearest" }); }
+  function tok() { return window.OmraaNet && OmraaNet.getToken ? OmraaNet.getToken() : null; }
+
+  /* كلمة سر قوية سهلة القراية: من غير الحروف اللي بتتلخبط (0/O, 1/l/I) */
+  function gen() {
+    var a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789", out = "";
+    var r = new Uint32Array(12); crypto.getRandomValues(r);
+    for (var i = 0; i < 12; i++) { out += a[r[i] % a.length]; if (i === 3 || i === 7) out += "-"; }
+    return out;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-gen]"), function (b) {
+    b.addEventListener("click", function () { $(b.getAttribute("data-gen")).value = gen(); });
+  });
+  $("role").addEventListener("change", function () { $("ownerWarn").hidden = this.value !== "owner"; });
+
+  function call(body) {
+    var t = tok();
+    if (!t) return Promise.reject(new Error("الجلسة انتهت — ادخل تاني"));
+    return fetch(FN, { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + t, apikey: ANON },
+                       body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: "رد غير مفهوم (" + r.status + ")" }; }); });
+  }
+
+  function loadList() {
+    var t = tok();
+    fetch(REST, { headers: { apikey: ANON, Authorization: "Bearer " + (t || ANON) } })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        $("list").innerHTML = rows.length ? rows.map(function (p) {
+          return '<div class="row"><span>' + esc(p.full_name || "—") + '</span><span>' +
+            '<span class="tag' + (p.role === "owner" ? " owner" : "") + '">' + (p.role === "owner" ? "مالك" : "موظف") + "</span> " +
+            (p.active ? "" : '<span class="tag off">موقوف</span>') + "</span></div>";
+        }).join("") : "مفيش حسابات";
+        $("who2").innerHTML = '<option value="">— اختار —</option>' + rows.map(function (p) {
+          return '<option value="' + esc(p.id) + '">' + esc(p.full_name || p.id) + (p.role === "owner" ? " (مالك)" : "") + "</option>";
+        }).join("");
+      }).catch(function () { $("list").textContent = "مقدرناش نحمّل القايمة"; });
+  }
+
+  function guard() {
+    if (!window.OmraaNet) { setTimeout(guard, 200); return; }
+    OmraaNet.rpc("pos_fn_my_role", {}, { retries: 1 }).then(function (me) {
+      if (me && me.is_owner) { $("who").textContent = "داخل كمالك — الصفحة دي للمالك بس."; loadList(); return; }
+      $("who").textContent = "";
+      document.querySelector(".wrap").innerHTML = '<div class="msg err">الصفحة دي للمالك بس.</div>';
+    }).catch(function (e) { note("err", e.message || "مقدرناش نتأكد من صلاحيتك — ادخل تاني"); });
+  }
+  guard();
+
+  $("addBtn").addEventListener("click", function () {
+    if (busy) return;
+    var name = $("name").value.trim(), email = $("email").value.trim(), pw = $("pw1").value, role = $("role").value;
+    if (!name) return note("err", "اكتب الاسم");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return note("err", "الإيميل مش صحيح");
+    if (pw.length < 8) return note("err", "كلمة السر لازم تكون ٨ حروف أو أكتر — دوس «ولّد واحدة»");
+    if (role === "owner" && !confirm("متأكد إنك عايز تدّي " + name + " صلاحية مالك؟")) return;
+    busy = true; $("addBtn").disabled = true; $("addBtn").textContent = "بننشئ الحساب…"; note("", "");
+    call({ action: "create", full_name: name, email: email, password: pw, role: role })
+      .then(function (r) {
+        if (!r || r.ok === false) return note("err", (r && r.message) || "مانفعش");
+        note("ok", "اتعمل حساب " + name + " ✓ — ابعتله بيانات الدخول دي بنفسك (ماتنساش تحتفظ بيها):");
+        var c = $("creds"); c.hidden = false;
+        c.textContent = "الرابط: " + location.origin + "/omraa/login\nالإيميل: " + email + "\nكلمة السر: " + pw;
+        $("name").value = ""; $("email").value = ""; $("pw1").value = "";
+        loadList();
+      })
+      .catch(function (e) { note("err", e.message || "مانفعش"); })
+      .finally(function () { busy = false; $("addBtn").disabled = false; $("addBtn").textContent = "إنشاء الحساب"; });
+  });
+
+  $("resetBtn").addEventListener("click", function () {
+    if (busy) return;
+    var uid = $("who2").value, pw = $("pw2").value;
+    if (!uid) return note("err", "اختار الموظف");
+    if (pw.length < 8) return note("err", "كلمة السر لازم تكون ٨ حروف أو أكتر — دوس «ولّد واحدة»");
+    busy = true; $("resetBtn").disabled = true; note("", "");
+    call({ action: "reset_password", user_id: uid, password: pw })
+      .then(function (r) {
+        if (!r || r.ok === false) return note("err", (r && r.message) || "مانفعش");
+        note("ok", "اتغيّرت كلمة السر ✓ — الكلمة الجديدة: " + pw);
+        $("pw2").value = "";
+      })
+      .catch(function (e) { note("err", e.message || "مانفعش"); })
+      .finally(function () { busy = false; $("resetBtn").disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

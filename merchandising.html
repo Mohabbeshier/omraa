@@ -335,7 +335,7 @@ function collectionsTab(){
           <div class="actions">
             <button class="btn-ghost" onclick="toggleActive('${c.id}',${!c.active})">${c.active?"إخفاء":"إظهار"}</button>
             <button class="btn-ghost" onclick="editC('${c.id}')">تعديل</button>
-            <button class="btn-danger" onclick="delC('${c.id}','${esc(c.title_ar)}')">حذف</button>
+            <button class="btn-danger" onclick="delC('${c.id}')">حذف</button>
           </div>
         </div>
       </div>`).join("")
@@ -489,7 +489,9 @@ async function toggleActive(id,val){
   await guard(async()=>{ await rpc("shop_fn_save_collection",{p:{...c,active:val}});
     toast(val?"ظهرت على الموقع ✓":"اتخفت من الموقع ✓"); });
 }
-async function delC(id,name){
+async function delC(id){
+  // الاسم بيتجاب من البيانات بالـid، مش بيتحط جوه onclick (حماية من حقن نص في العنوان)
+  const name=((S.data.collections||[]).find(c=>c.id===id)||{}).title_ar||"";
   if(!confirm(`متأكد إنك عايز تحذف «${name}»؟ ده مش هيحذف المنتجات نفسها.`)) return;
   await guard(async()=>{ await rpc("shop_fn_delete_collection",{p_id:id}); toast("اتحذفت ✓"); });
 }
